@@ -43,15 +43,15 @@ function App() {
     const API_KEY = '3U1SdIvYnXx3ZGczLrOUjwNLFXRBiPv7h2Bpcb2Z'
     const BASE_URL = 'https://api.eia.gov/v2/electricity/retail-sales/data'
     
-    const fetchData = async (stateId, sectorId) => {
+    const fetchData = async (stateId, sectorId, freq = 'monthly', length = 6) => {
       const params = new URLSearchParams({
         api_key: API_KEY,
         'facets[stateid][]': stateId,
         'facets[sectorid][]': sectorId,
-        frequency: 'monthly',
+        frequency: freq,
         'sort[0][column]': 'period',
         'sort[0][direction]': 'desc',
-        length: '6'
+        length: length.toString()
       })
       ;['price', 'sales', 'customers', 'revenue'].forEach(f => params.append('data[]', f))
       const res = await fetch(`${BASE_URL}?${params}`)
@@ -59,11 +59,13 @@ function App() {
       return json.response?.data || []
     }
 
-    const [txRes, txCom, usRes, usCom] = await Promise.all([
-      fetchData('TX', 'RES'),
-      fetchData('TX', 'COM'),
-      fetchData('US', 'RES'),
-      fetchData('US', 'COM')
+    const [txRes, txCom, usRes, usCom, txResAnnual, usResAnnual] = await Promise.all([
+      fetchData('TX', 'RES', 'monthly', 6),
+      fetchData('TX', 'COM', 'monthly', 6),
+      fetchData('US', 'RES', 'monthly', 6),
+      fetchData('US', 'COM', 'monthly', 6),
+      fetchData('TX', 'RES', 'annual', 2),
+      fetchData('US', 'RES', 'annual', 2)
     ])
 
     const calcAvg = (row) => {
@@ -73,6 +75,19 @@ function App() {
       return {
         avgUsage: customers > 0 ? Math.round(sales / customers) : 0,
         avgBill: customers > 0 ? Math.round(revenue / customers) : 0,
+        customers: Math.round(customers)
+      }
+    }
+
+    const calcAnnualAvg = (row) => {
+      const sales = parseFloat(row?.sales || 0) * 1000000
+      const customers = parseFloat(row?.customers || 0)
+      const revenue = parseFloat(row?.revenue || 0) * 1000000
+      return {
+        avgMonthlyUsage: customers > 0 ? Math.round((sales / customers) / 12) : 0,
+        avgMonthlyBill: customers > 0 ? Math.round((revenue / customers) / 12) : 0,
+        avgAnnualUsage: customers > 0 ? Math.round(sales / customers) : 0,
+        avgAnnualBill: customers > 0 ? Math.round(revenue / customers) : 0,
         customers: Math.round(customers)
       }
     }
@@ -104,7 +119,10 @@ function App() {
         history: usCom.map(d => parseFloat(d.price)).reverse(),
         ...calcAvg(usCom[0])
       },
-      annual: { txRes: null, usRes: null },
+      annual: {
+        txRes: txResAnnual[0] ? { year: txResAnnual[0].period, ...calcAnnualAvg(txResAnnual[0]) } : null,
+        usRes: usResAnnual[0] ? { year: usResAnnual[0].period, ...calcAnnualAvg(usResAnnual[0]) } : null
+      },
       usageTrend: txRes.map(d => ({
         period: d.period,
         usage: calcAvg(d).avgUsage,
@@ -246,7 +264,7 @@ function App() {
         <div className="period-select">
           <span className="label">Data Period:</span>
           <span className="period">{rates ? formatPeriod(rates.period) : '—'}</span>
-        </div>
+      </div>
         <button onClick={fetchAllRates} disabled={loading} className="btn-primary">
           {loading ? '⏳ Fetching...' : '⟳ Fetch Latest Data'}
         </button>
