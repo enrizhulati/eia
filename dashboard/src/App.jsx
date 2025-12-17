@@ -13,19 +13,10 @@ function App() {
     setError(null)
 
     try {
-      // Call our serverless function (API key stays server-side)
       const response = await fetch('/api/rates')
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch rates: ${response.status}`)
-      }
-      
+      if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`)
       const data = await response.json()
-      
-      if (data.error) {
-        throw new Error(data.error)
-      }
-
+      if (data.error) throw new Error(data.error)
       setRates(data)
       setLastFetched(new Date().toLocaleString())
     } catch (err) {
@@ -35,9 +26,7 @@ function App() {
     }
   }
 
-  useEffect(() => {
-    fetchAllRates()
-  }, [])
+  useEffect(() => { fetchAllRates() }, [])
 
   const delta = (current, prev) => {
     const diff = current - prev
@@ -53,10 +42,13 @@ function App() {
     return `${months[parseInt(month)]} ${year}`
   }
 
+  const formatNumber = (n) => n?.toLocaleString() || '—'
+
   const getShortcodes = () => {
     if (!rates) return {}
     const r = rates
     return {
+      // Price shortcodes
       'avg_texas_residential_rate': `${r.txRes.current.toFixed(2)} ¢/kWh`,
       'previous_month_avg_texas_residential_rate-copy': `${r.txRes.prev.toFixed(2)} ¢/kWh`,
       'percent_diff_monthly_resi': `${delta(r.txRes.current, r.txRes.prev).pct}%`,
@@ -69,6 +61,16 @@ function App() {
       'us_com_rate': `${r.usCom.current.toFixed(2)} ¢/kWh`,
       'tx_res_change': `${delta(r.txRes.current, r.txRes.prev).diff} ¢/kWh`,
       'tx_com_change': `${delta(r.txCom.current, r.txCom.prev).diff} ¢/kWh`,
+      // Usage & bill shortcodes
+      'average_monthly_usage': `${formatNumber(r.txRes.avgUsage)} kWh`,
+      'average_monthly_bill': `$${formatNumber(r.txRes.avgBill)}`,
+      'average_monthly_bill_business': `$${formatNumber(r.txCom.avgBill)}`,
+      'tx_residential_customers': formatNumber(r.txRes.customers),
+      // Annual averages
+      'annual_avg_usage': r.annual?.txRes ? `${formatNumber(r.annual.txRes.avgMonthlyUsage)} kWh/month` : '—',
+      'annual_avg_bill': r.annual?.txRes ? `$${formatNumber(r.annual.txRes.avgMonthlyBill)}/month` : '—',
+      'us_avg_monthly_usage': r.annual?.usRes ? `${formatNumber(r.annual.usRes.avgMonthlyUsage)} kWh/month` : '—',
+      'us_avg_monthly_bill': r.annual?.usRes ? `$${formatNumber(r.annual.usRes.avgMonthlyBill)}/month` : '—',
     }
   }
 
@@ -86,10 +88,11 @@ function App() {
       us_residential_prev: r.usRes.prev,
       us_commercial: r.usCom.current,
       us_commercial_prev: r.usCom.prev,
-      tx_vs_us_residential_diff: (r.txRes.current - r.usRes.current).toFixed(2),
-      tx_vs_us_commercial_diff: (r.txCom.current - r.usCom.current).toFixed(2),
-      tx_vs_us_residential_pct: (((r.txRes.current - r.usRes.current) / r.usRes.current) * 100).toFixed(1),
-      tx_vs_us_commercial_pct: (((r.txCom.current - r.usCom.current) / r.usCom.current) * 100).toFixed(1),
+      tx_avg_monthly_usage_kwh: r.txRes.avgUsage,
+      tx_avg_monthly_bill: r.txRes.avgBill,
+      tx_residential_customers: r.txRes.customers,
+      annual_data: r.annual,
+      usage_trend: r.usageTrend,
       ...getShortcodes()
     }
   }
@@ -131,7 +134,6 @@ function App() {
       const y = height - ((v - min) / range) * height
       return `${x},${y}`
     }).join(' ')
-    
     return (
       <svg width={width} height={height} className="sparkline">
         <polyline fill="none" stroke={color} strokeWidth="2" points={points} />
@@ -164,13 +166,38 @@ function App() {
 
       {rates && (
         <>
+          {/* Key Stats Cards */}
+          <section className="stats-cards">
+            <div className="stat-card">
+              <div className="stat-label">TX Avg Monthly Usage</div>
+              <div className="stat-value">{formatNumber(rates.txRes.avgUsage)} kWh</div>
+              <div className="stat-compare">US Avg: {rates.annual?.usRes ? formatNumber(rates.annual.usRes.avgMonthlyUsage) : '—'} kWh</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">TX Avg Monthly Bill</div>
+              <div className="stat-value">${formatNumber(rates.txRes.avgBill)}</div>
+              <div className="stat-compare">US Avg: ${rates.annual?.usRes ? formatNumber(rates.annual.usRes.avgMonthlyBill) : '—'}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">TX Residential Customers</div>
+              <div className="stat-value">{(rates.txRes.customers / 1000000).toFixed(1)}M</div>
+              <div className="stat-compare">{formatPeriod(rates.period)}</div>
+            </div>
+            <div className="stat-card accent">
+              <div className="stat-label">TX vs US Price Savings</div>
+              <div className="stat-value">{(((rates.txRes.current - rates.usRes.current) / rates.usRes.current) * 100).toFixed(1)}%</div>
+              <div className="stat-compare">Lower than national avg</div>
+            </div>
+          </section>
+
+          {/* Rate Comparison Table */}
           <section className="data-panel">
             <h2>📊 Rate Comparison</h2>
             <table>
               <thead>
                 <tr>
                   <th>Metric</th>
-                  <th>Current (¢/kWh)</th>
+                  <th>Price (¢/kWh)</th>
                   <th>Prev Month</th>
                   <th>Change</th>
                   <th>Trend</th>
@@ -231,6 +258,32 @@ function App() {
             </table>
           </section>
 
+          {/* Usage Trend */}
+          {rates.usageTrend && rates.usageTrend.length > 0 && (
+            <section className="data-panel">
+              <h2>📈 Monthly Usage & Bill Trend (Texas Residential)</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Avg Usage</th>
+                    <th>Avg Bill</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rates.usageTrend.map((m, i) => (
+                    <tr key={i}>
+                      <td>{formatPeriod(m.period)}</td>
+                      <td className="value">{formatNumber(m.usage)} kWh</td>
+                      <td className="value">${formatNumber(m.bill)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          {/* Export */}
           <section className="export-panel">
             <h2>📦 Export</h2>
             <div className="export-buttons">
@@ -246,6 +299,7 @@ function App() {
             </div>
           </section>
 
+          {/* Shortcodes */}
           <section className="shortcode-panel">
             <h2>✅ WordPress Shortcodes</h2>
             <div className="shortcode-grid">
