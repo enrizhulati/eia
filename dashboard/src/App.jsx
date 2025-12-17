@@ -283,6 +283,60 @@ function App() {
             </section>
           )}
 
+          {/* Story Ideas */}
+          <section className="story-panel">
+            <h2>💡 Content Ideas for Readers</h2>
+            <div className="story-grid">
+              <div className="story-card" onClick={() => copyToClipboard(`Texans use ${Math.round(((rates.txRes.avgUsage / (rates.annual?.usRes?.avgMonthlyUsage || 863)) - 1) * 100)}% more electricity than the national average, averaging ${formatNumber(rates.txRes.avgUsage)} kWh per month compared to ${formatNumber(rates.annual?.usRes?.avgMonthlyUsage)} kWh nationally.`, 'story1')}>
+                <div className="story-stat">{Math.round(((rates.txRes.avgUsage / (rates.annual?.usRes?.avgMonthlyUsage || 863)) - 1) * 100)}%</div>
+                <div className="story-text">Texans use more electricity than the national average</div>
+                <div className="story-detail">{formatNumber(rates.txRes.avgUsage)} kWh vs {formatNumber(rates.annual?.usRes?.avgMonthlyUsage)} kWh nationally</div>
+                <span className="copy-hint">{copied === 'story1' ? '✓ Copied!' : 'Click to copy'}</span>
+              </div>
+              
+              <div className="story-card" onClick={() => copyToClipboard(`The average Texas electricity bill is $${formatNumber(rates.txRes.avgBill)} per month, based on ${formatNumber(rates.txRes.avgUsage)} kWh of usage at ${rates.txRes.current.toFixed(2)}¢/kWh.`, 'story2')}>
+                <div className="story-stat">${formatNumber(rates.txRes.avgBill)}</div>
+                <div className="story-text">Average monthly electric bill in Texas</div>
+                <div className="story-detail">Based on {formatNumber(rates.txRes.avgUsage)} kWh at {rates.txRes.current.toFixed(2)}¢/kWh</div>
+                <span className="copy-hint">{copied === 'story2' ? '✓ Copied!' : 'Click to copy'}</span>
+              </div>
+              
+              <div className="story-card accent" onClick={() => copyToClipboard(`Despite higher usage, Texas electricity rates are ${Math.abs(((rates.txRes.current - rates.usRes.current) / rates.usRes.current) * 100).toFixed(1)}% below the national average—${rates.txRes.current.toFixed(2)}¢/kWh vs ${rates.usRes.current.toFixed(2)}¢/kWh.`, 'story3')}>
+                <div className="story-stat">{Math.abs(((rates.txRes.current - rates.usRes.current) / rates.usRes.current) * 100).toFixed(1)}%</div>
+                <div className="story-text">Texas rates below national average</div>
+                <div className="story-detail">{rates.txRes.current.toFixed(2)}¢ vs {rates.usRes.current.toFixed(2)}¢/kWh nationally</div>
+                <span className="copy-hint">{copied === 'story3' ? '✓ Copied!' : 'Click to copy'}</span>
+              </div>
+              
+              <div className="story-card" onClick={() => copyToClipboard(`${(rates.txRes.customers / 1000000).toFixed(1)} million Texas households have the power to choose their electricity provider in the deregulated ERCOT market.`, 'story4')}>
+                <div className="story-stat">{(rates.txRes.customers / 1000000).toFixed(1)}M</div>
+                <div className="story-text">Texas households can choose their provider</div>
+                <div className="story-detail">Deregulated ERCOT market</div>
+                <span className="copy-hint">{copied === 'story4' ? '✓ Copied!' : 'Click to copy'}</span>
+              </div>
+
+              {rates.usageTrend && rates.usageTrend.length >= 4 && (() => {
+                const peak = rates.usageTrend.reduce((max, m) => m.bill > max.bill ? m : max, rates.usageTrend[0]);
+                const low = rates.usageTrend.reduce((min, m) => m.bill < min.bill ? m : min, rates.usageTrend[0]);
+                return (
+                  <div className="story-card wide" onClick={() => copyToClipboard(`Texas electricity bills swing dramatically by season—from $${formatNumber(low.bill)} in ${formatPeriod(low.period)} to $${formatNumber(peak.bill)} in ${formatPeriod(peak.period)}. Locking in a fixed rate before summer can protect against these spikes.`, 'story5')}>
+                    <div className="story-stat">${formatNumber(low.bill)} → ${formatNumber(peak.bill)}</div>
+                    <div className="story-text">Seasonal bill swing in Texas</div>
+                    <div className="story-detail">{formatPeriod(low.period)} (low) to {formatPeriod(peak.period)} (peak)</div>
+                    <span className="copy-hint">{copied === 'story5' ? '✓ Copied!' : 'Click to copy'}</span>
+                  </div>
+                );
+              })()}
+
+              <div className="story-card wide" onClick={() => copyToClipboard(`Texas commercial electricity rates average ${rates.txCom.current.toFixed(2)}¢/kWh—${Math.abs(((rates.txCom.current - rates.usCom.current) / rates.usCom.current) * 100).toFixed(1)}% below the U.S. commercial average of ${rates.usCom.current.toFixed(2)}¢/kWh. This makes Texas one of the most affordable states for business energy costs.`, 'story6')}>
+                <div className="story-stat">{Math.abs(((rates.txCom.current - rates.usCom.current) / rates.usCom.current) * 100).toFixed(1)}%</div>
+                <div className="story-text">Texas commercial rates below US average</div>
+                <div className="story-detail">{rates.txCom.current.toFixed(2)}¢ vs {rates.usCom.current.toFixed(2)}¢/kWh nationally</div>
+                <span className="copy-hint">{copied === 'story6' ? '✓ Copied!' : 'Click to copy'}</span>
+              </div>
+            </div>
+          </section>
+
           {/* Export */}
           <section className="export-panel">
             <h2>📦 Export</h2>

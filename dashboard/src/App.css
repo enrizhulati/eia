@@ -234,6 +234,94 @@ tr.highlight td {
   margin-top: 0.25rem;
 }
 
+/* Story Cards */
+.story-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.story-panel h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.story-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.story-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.story-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.story-card.wide {
+  grid-column: span 2;
+}
+
+.story-card.accent {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.story-stat {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 0.25rem;
+}
+
+.story-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.story-detail {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.story-card .copy-hint {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.story-card:hover .copy-hint {
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .story-card.wide {
+    grid-column: span 1;
+  }
+  
+  .story-stat {
+    font-size: 1.5rem;
+  }
+}
+
 .export-panel .export-buttons {
   display: flex;
   gap: 0.75rem;
