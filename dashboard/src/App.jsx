@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 
 const API_KEY = '3U1SdIvYnXx3ZGczLrOUjwNLFXRBiPv7h2Bpcb2Z'
@@ -9,8 +9,9 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [lastFetched, setLastFetched] = useState(null)
+  const [copied, setCopied] = useState(null)
 
-  const fetchEIAData = async (stateId, sectorId) => {
+  const fetchEIAData = async (stateId, sectorId, months = 6) => {
     const params = new URLSearchParams({
       api_key: API_KEY,
       'data[]': 'price',
@@ -19,7 +20,7 @@ function App() {
       frequency: 'monthly',
       'sort[0][column]': 'period',
       'sort[0][direction]': 'desc',
-      length: '2'
+      length: months.toString()
     })
 
     const response = await fetch(`${BASE_URL}?${params}`)
@@ -33,27 +34,22 @@ function App() {
 
     try {
       const [txRes, txCom, usRes, usCom] = await Promise.all([
-        fetchEIAData('TX', 'RES'),
-        fetchEIAData('TX', 'COM'),
-        fetchEIAData('US', 'RES'),
-        fetchEIAData('US', 'COM')
+        fetchEIAData('TX', 'RES', 6),
+        fetchEIAData('TX', 'COM', 6),
+        fetchEIAData('US', 'RES', 6),
+        fetchEIAData('US', 'COM', 6)
       ])
 
-      const rawRates = {
-        dataPeriod: txRes[0]?.period || 'Unknown',
-        prevPeriod: txRes[1]?.period || 'Unknown',
-        txResCurrent: parseFloat(txRes[0]?.price) || 0,
-        txResPrev: parseFloat(txRes[1]?.price) || 0,
-        txComCurrent: parseFloat(txCom[0]?.price) || 0,
-        txComPrev: parseFloat(txCom[1]?.price) || 0,
-        usResCurrent: parseFloat(usRes[0]?.price) || 0,
-        usResPrev: parseFloat(usRes[1]?.price) || 0,
-        usComCurrent: parseFloat(usCom[0]?.price) || 0,
-        usComPrev: parseFloat(usCom[1]?.price) || 0
+      const raw = {
+        period: txRes[0]?.period,
+        prevPeriod: txRes[1]?.period,
+        txRes: { current: parseFloat(txRes[0]?.price), prev: parseFloat(txRes[1]?.price), history: txRes.map(d => parseFloat(d.price)).reverse() },
+        txCom: { current: parseFloat(txCom[0]?.price), prev: parseFloat(txCom[1]?.price), history: txCom.map(d => parseFloat(d.price)).reverse() },
+        usRes: { current: parseFloat(usRes[0]?.price), prev: parseFloat(usRes[1]?.price), history: usRes.map(d => parseFloat(d.price)).reverse() },
+        usCom: { current: parseFloat(usCom[0]?.price), prev: parseFloat(usCom[1]?.price), history: usCom.map(d => parseFloat(d.price)).reverse() }
       }
 
-      const calculated = calculateShortcodes(rawRates)
-      setRates(calculated)
+      setRates(raw)
       setLastFetched(new Date().toLocaleString())
     } catch (err) {
       setError(err.message)
@@ -62,225 +58,240 @@ function App() {
     }
   }
 
-  const calculateShortcodes = (r) => {
-    const txResChange = r.txResCurrent - r.txResPrev
-    const txComChange = r.txComCurrent - r.txComPrev
-    const usResChange = r.usResCurrent - r.usResPrev
-    const usComChange = r.usComCurrent - r.usComPrev
+  useEffect(() => {
+    fetchAllRates()
+  }, [])
 
+  const delta = (current, prev) => {
+    const diff = current - prev
+    const pct = ((diff / prev) * 100).toFixed(2)
+    const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : ''
+    return { diff: diff.toFixed(2), pct, arrow, positive: diff > 0 }
+  }
+
+  const formatPeriod = (period) => {
+    if (!period) return ''
+    const [year, month] = period.split('-')
+    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    return `${months[parseInt(month)]} ${year}`
+  }
+
+  const getShortcodes = () => {
+    if (!rates) return {}
+    const r = rates
     return {
-      month: r.dataPeriod,
-      previousMonth: r.prevPeriod,
-      
-      // Existing shortcodes
-      avg_texas_residential_rate: `${r.txResCurrent.toFixed(2)} ¢/kWh`,
-      'previous_month_avg_texas_residential_rate-copy': `${r.txResPrev.toFixed(2)} ¢/kWh`,
-      percent_diff_monthly_resi: `${((txResChange / r.txResPrev) * 100).toFixed(2)}%`,
-      avg_commercial_rate_texas: `${r.txComCurrent.toFixed(2)} ¢/kWh`,
-      percent_off_us_avg_com: `${(((r.txComCurrent - r.usComCurrent) / r.usComCurrent) * 100).toFixed(1)}%`,
-      percent_off_us_avg: `${(((r.txResCurrent - r.usResCurrent) / r.usResCurrent) * 100).toFixed(1)}%`,
-      national_avg_rate_residential: `${r.usResCurrent.toFixed(2)} ¢/kWh`,
-
-      // New shortcodes
-      tx_res_prev_rate: `${r.txResPrev.toFixed(2)} ¢/kWh`,
-      tx_res_change: `${txResChange >= 0 ? '+' : ''}${txResChange.toFixed(2)} ¢/kWh`,
-      us_res_prev_rate: `${r.usResPrev.toFixed(2)} ¢/kWh`,
-      us_res_change: `${usResChange >= 0 ? '+' : ''}${usResChange.toFixed(2)} ¢/kWh`,
-      tx_res_vs_us_diff: `${(r.txResCurrent - r.usResCurrent).toFixed(2)} ¢/kWh`,
-      tx_com_prev_rate: `${r.txComPrev.toFixed(2)} ¢/kWh`,
-      tx_com_change: `${txComChange >= 0 ? '+' : ''}${txComChange.toFixed(2)} ¢/kWh`,
-      us_com_rate: `${r.usComCurrent.toFixed(2)} ¢/kWh`,
-      us_com_prev_rate: `${r.usComPrev.toFixed(2)} ¢/kWh`,
-      us_com_change: `${usComChange >= 0 ? '+' : ''}${usComChange.toFixed(2)} ¢/kWh`,
-      tx_com_vs_us_diff: `${(r.txComCurrent - r.usComCurrent).toFixed(2)} ¢/kWh`,
-
-      // Calculated bills
-      average_monthly_bill: `$${(r.txResCurrent * 10).toFixed(2)}`,
-      average_monthly_bill_business: `$${(r.txComCurrent * 10).toFixed(2)}`,
-      avg_texas_residential_rate_dollars: `$${(r.txResCurrent / 100).toFixed(2)}`
+      'avg_texas_residential_rate': `${r.txRes.current.toFixed(2)} ¢/kWh`,
+      'previous_month_avg_texas_residential_rate-copy': `${r.txRes.prev.toFixed(2)} ¢/kWh`,
+      'percent_diff_monthly_resi': `${delta(r.txRes.current, r.txRes.prev).pct}%`,
+      'avg_commercial_rate_texas': `${r.txCom.current.toFixed(2)} ¢/kWh`,
+      'percent_off_us_avg_com': `${(((r.txCom.current - r.usCom.current) / r.usCom.current) * 100).toFixed(1)}%`,
+      'percent_off_us_avg': `${(((r.txRes.current - r.usRes.current) / r.usRes.current) * 100).toFixed(1)}%`,
+      'national_avg_rate_residential': `${r.usRes.current.toFixed(2)} ¢/kWh`,
+      'tx_res_vs_us_diff': `${(r.txRes.current - r.usRes.current).toFixed(2)} ¢/kWh`,
+      'tx_com_vs_us_diff': `${(r.txCom.current - r.usCom.current).toFixed(2)} ¢/kWh`,
+      'us_com_rate': `${r.usCom.current.toFixed(2)} ¢/kWh`,
+      'tx_res_change': `${delta(r.txRes.current, r.txRes.prev).diff} ¢/kWh`,
+      'tx_com_change': `${delta(r.txCom.current, r.txCom.prev).diff} ¢/kWh`,
     }
   }
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text)
-  }
-
-  const copyAllAsJSON = () => {
-    if (rates) {
-      navigator.clipboard.writeText(JSON.stringify(rates, null, 2))
-      alert('Copied all rates as JSON!')
+  const getJSON = () => {
+    if (!rates) return {}
+    const r = rates
+    return {
+      month: r.period,
+      previous_month: r.prevPeriod,
+      texas_residential: r.txRes.current,
+      texas_residential_prev: r.txRes.prev,
+      texas_commercial: r.txCom.current,
+      texas_commercial_prev: r.txCom.prev,
+      us_residential: r.usRes.current,
+      us_residential_prev: r.usRes.prev,
+      us_commercial: r.usCom.current,
+      us_commercial_prev: r.usCom.prev,
+      tx_vs_us_residential_diff: (r.txRes.current - r.usRes.current).toFixed(2),
+      tx_vs_us_commercial_diff: (r.txCom.current - r.usCom.current).toFixed(2),
+      tx_vs_us_residential_pct: (((r.txRes.current - r.usRes.current) / r.usRes.current) * 100).toFixed(1),
+      tx_vs_us_commercial_pct: (((r.txCom.current - r.usCom.current) / r.usCom.current) * 100).toFixed(1),
+      ...getShortcodes()
     }
   }
 
-  const existingShortcodes = [
-    'avg_texas_residential_rate',
-    'previous_month_avg_texas_residential_rate-copy',
-    'percent_diff_monthly_resi',
-    'avg_commercial_rate_texas',
-    'percent_off_us_avg_com',
-    'percent_off_us_avg',
-    'national_avg_rate_residential'
-  ]
+  const copyToClipboard = async (text, label) => {
+    await navigator.clipboard.writeText(text)
+    setCopied(label)
+    setTimeout(() => setCopied(null), 2000)
+  }
 
-  const newShortcodes = [
-    'tx_res_prev_rate',
-    'tx_res_change',
-    'us_res_prev_rate',
-    'us_res_change',
-    'tx_res_vs_us_diff',
-    'tx_com_prev_rate',
-    'tx_com_change',
-    'us_com_rate',
-    'us_com_prev_rate',
-    'us_com_change',
-    'tx_com_vs_us_diff'
-  ]
+  const copyJSON = () => copyToClipboard(JSON.stringify(getJSON(), null, 2), 'json')
+  
+  const copyShortcodes = () => {
+    const sc = getShortcodes()
+    const text = Object.entries(sc).map(([k, v]) => `[sc name="${k}"] = ${v}`).join('\n')
+    copyToClipboard(text, 'shortcodes')
+  }
 
-  const calculatedFields = [
-    'average_monthly_bill',
-    'average_monthly_bill_business',
-    'avg_texas_residential_rate_dollars'
-  ]
+  const downloadCSV = () => {
+    const sc = getShortcodes()
+    const csv = 'Shortcode,Value\n' + Object.entries(sc).map(([k, v]) => `"${k}","${v}"`).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `eia_rates_${rates?.period || 'export'}.csv`
+    a.click()
+  }
+
+  const Sparkline = ({ data, color }) => {
+    if (!data || data.length < 2) return null
+    const min = Math.min(...data)
+    const max = Math.max(...data)
+    const range = max - min || 1
+    const height = 24
+    const width = 80
+    const points = data.map((v, i) => {
+      const x = (i / (data.length - 1)) * width
+      const y = height - ((v - min) / range) * height
+      return `${x},${y}`
+    }).join(' ')
+    
+    return (
+      <svg width={width} height={height} className="sparkline">
+        <polyline fill="none" stroke={color} strokeWidth="2" points={points} />
+      </svg>
+    )
+  }
 
   return (
     <div className="app">
       <header>
-        <div className="logo">⚡</div>
-        <h1>ComparePower EIA Rate Fetcher</h1>
-        <p className="subtitle">Fetch latest Texas electricity rates from EIA.gov</p>
+        <h1>⚡ Texas Electricity Rate Sync</h1>
+        <p className="meta">
+          Powered by EIA.gov API • 
+          {lastFetched ? ` Last fetched: ${lastFetched}` : ' Ready to fetch'} • 
+          <span className="status">API Connected ✓</span>
+        </p>
       </header>
 
-      <div className="controls">
-        <button 
-          onClick={fetchAllRates} 
-          disabled={loading}
-          className="fetch-btn"
-        >
-          {loading ? '⏳ Fetching...' : '🔄 Fetch Latest Rates'}
+      {error && <div className="error">❌ {error}</div>}
+
+      <div className="toolbar">
+        <div className="period-select">
+          <span className="label">Data Period:</span>
+          <span className="period">{rates ? formatPeriod(rates.period) : '—'}</span>
+        </div>
+        <button onClick={fetchAllRates} disabled={loading} className="btn-primary">
+          {loading ? '⏳ Fetching...' : '⟳ Fetch Latest Data'}
         </button>
-        
-        {rates && (
-          <button onClick={copyAllAsJSON} className="copy-btn">
-            📋 Copy All as JSON
-          </button>
-        )}
       </div>
 
-      {error && <div className="error">❌ Error: {error}</div>}
-
-      {lastFetched && (
-        <div className="meta">
-          Last fetched: {lastFetched} | Data period: <strong>{rates?.month}</strong> (prev: {rates?.previousMonth})
-        </div>
-      )}
-
       {rates && (
-        <div className="tables">
-          <section>
-            <h2>📊 Existing Shortcodes</h2>
-            <p className="section-desc">Update these in WordPress</p>
+        <>
+          <section className="data-panel">
+            <h2>📊 Rate Comparison</h2>
             <table>
               <thead>
                 <tr>
-                  <th>Shortcode</th>
-                  <th>Value</th>
-                  <th>Copy</th>
+                  <th>Metric</th>
+                  <th>Current (¢/kWh)</th>
+                  <th>Prev Month</th>
+                  <th>Change</th>
+                  <th>Trend</th>
                 </tr>
               </thead>
               <tbody>
-                {existingShortcodes.map(key => (
-                  <tr key={key}>
-                    <td className="code">{key}</td>
-                    <td className="value">{rates[key]}</td>
-                    <td>
-                      <button 
-                        className="copy-cell" 
-                        onClick={() => copyToClipboard(rates[key])}
-                        title="Copy value"
-                      >
-                        📋
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                <tr>
+                  <td>Texas Residential</td>
+                  <td className="value">{rates.txRes.current.toFixed(2)}</td>
+                  <td>{rates.txRes.prev.toFixed(2)}</td>
+                  <td className={delta(rates.txRes.current, rates.txRes.prev).positive ? 'up' : 'down'}>
+                    {delta(rates.txRes.current, rates.txRes.prev).arrow} {delta(rates.txRes.current, rates.txRes.prev).diff} ({delta(rates.txRes.current, rates.txRes.prev).pct}%)
+                  </td>
+                  <td><Sparkline data={rates.txRes.history} color="#00d4aa" /></td>
+                </tr>
+                <tr>
+                  <td>Texas Commercial</td>
+                  <td className="value">{rates.txCom.current.toFixed(2)}</td>
+                  <td>{rates.txCom.prev.toFixed(2)}</td>
+                  <td className={delta(rates.txCom.current, rates.txCom.prev).positive ? 'up' : 'down'}>
+                    {delta(rates.txCom.current, rates.txCom.prev).arrow} {delta(rates.txCom.current, rates.txCom.prev).diff} ({delta(rates.txCom.current, rates.txCom.prev).pct}%)
+                  </td>
+                  <td><Sparkline data={rates.txCom.history} color="#00b4d8" /></td>
+                </tr>
+                <tr>
+                  <td>U.S. Residential</td>
+                  <td className="value">{rates.usRes.current.toFixed(2)}</td>
+                  <td>{rates.usRes.prev.toFixed(2)}</td>
+                  <td className={delta(rates.usRes.current, rates.usRes.prev).positive ? 'up' : 'down'}>
+                    {delta(rates.usRes.current, rates.usRes.prev).arrow} {delta(rates.usRes.current, rates.usRes.prev).diff} ({delta(rates.usRes.current, rates.usRes.prev).pct}%)
+                  </td>
+                  <td><Sparkline data={rates.usRes.history} color="#8b8b8b" /></td>
+                </tr>
+                <tr>
+                  <td>U.S. Commercial</td>
+                  <td className="value">{rates.usCom.current.toFixed(2)}</td>
+                  <td>{rates.usCom.prev.toFixed(2)}</td>
+                  <td className={delta(rates.usCom.current, rates.usCom.prev).positive ? 'up' : 'down'}>
+                    {delta(rates.usCom.current, rates.usCom.prev).arrow} {delta(rates.usCom.current, rates.usCom.prev).diff} ({delta(rates.usCom.current, rates.usCom.prev).pct}%)
+                  </td>
+                  <td><Sparkline data={rates.usCom.history} color="#6b6b6b" /></td>
+                </tr>
+                <tr className="highlight">
+                  <td><strong>TX vs US (Residential)</strong></td>
+                  <td className="value savings">{(rates.txRes.current - rates.usRes.current).toFixed(2)}</td>
+                  <td>—</td>
+                  <td className="savings">{(((rates.txRes.current - rates.usRes.current) / rates.usRes.current) * 100).toFixed(1)}% lower</td>
+                  <td></td>
+                </tr>
+                <tr className="highlight">
+                  <td><strong>TX vs US (Commercial)</strong></td>
+                  <td className="value savings">{(rates.txCom.current - rates.usCom.current).toFixed(2)}</td>
+                  <td>—</td>
+                  <td className="savings">{(((rates.txCom.current - rates.usCom.current) / rates.usCom.current) * 100).toFixed(1)}% lower</td>
+                  <td></td>
+                </tr>
               </tbody>
             </table>
           </section>
 
-          <section>
-            <h2>🆕 New Shortcodes</h2>
-            <p className="section-desc">Create these if needed</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Shortcode</th>
-                  <th>Value</th>
-                  <th>Copy</th>
-                </tr>
-              </thead>
-              <tbody>
-                {newShortcodes.map(key => (
-                  <tr key={key}>
-                    <td className="code">{key}</td>
-                    <td className="value">{rates[key]}</td>
-                    <td>
-                      <button 
-                        className="copy-cell" 
-                        onClick={() => copyToClipboard(rates[key])}
-                        title="Copy value"
-                      >
-                        📋
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <section className="export-panel">
+            <h2>📦 Export</h2>
+            <div className="export-buttons">
+              <button onClick={copyJSON} className="btn-export">
+                {copied === 'json' ? '✓ Copied!' : '📋 Copy JSON'}
+              </button>
+              <button onClick={downloadCSV} className="btn-export">
+                ⬇️ Download CSV
+              </button>
+              <button onClick={copyShortcodes} className="btn-export">
+                {copied === 'shortcodes' ? '✓ Copied!' : '🔠 Copy Shortcodes'}
+              </button>
+            </div>
           </section>
 
-          <section>
-            <h2>🧮 Calculated Fields</h2>
-            <p className="section-desc">Based on 1,000 kWh usage</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Field</th>
-                  <th>Value</th>
-                  <th>Copy</th>
-                </tr>
-              </thead>
-              <tbody>
-                {calculatedFields.map(key => (
-                  <tr key={key}>
-                    <td className="code">{key}</td>
-                    <td className="value">{rates[key]}</td>
-                    <td>
-                      <button 
-                        className="copy-cell" 
-                        onClick={() => copyToClipboard(rates[key])}
-                        title="Copy value"
-                      >
-                        📋
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <section className="shortcode-panel">
+            <h2>✅ WordPress Shortcodes</h2>
+            <div className="shortcode-grid">
+              {Object.entries(getShortcodes()).map(([key, value]) => (
+                <div key={key} className="shortcode-row" onClick={() => copyToClipboard(value, key)}>
+                  <code>[sc name="{key}"]</code>
+                  <span className="shortcode-value">{value}</span>
+                  <span className="copy-hint">{copied === key ? '✓' : '📋'}</span>
+                </div>
+              ))}
+            </div>
           </section>
-        </div>
+        </>
       )}
 
       {!rates && !loading && (
-        <div className="empty-state">
-          <div className="empty-icon">📊</div>
-          <p>Click "Fetch Latest Rates" to get current EIA data</p>
+        <div className="empty">
+          <p>Click "Fetch Latest Data" to load EIA rates</p>
         </div>
       )}
 
       <footer>
-        <p>Data source: <a href="https://www.eia.gov/" target="_blank" rel="noopener noreferrer">U.S. Energy Information Administration</a></p>
-        <p>Built for <a href="https://www.comparepower.com" target="_blank" rel="noopener noreferrer">ComparePower.com</a></p>
+        <p>Data: <a href="https://www.eia.gov/" target="_blank">U.S. Energy Information Administration</a> • Built for <a href="https://comparepower.com" target="_blank">ComparePower.com</a></p>
       </footer>
     </div>
   )
