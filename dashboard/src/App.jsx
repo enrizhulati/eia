@@ -13,7 +13,19 @@ function App() {
     setError(null)
 
     try {
-      const response = await fetch('/api/rates')
+      // Try the serverless function first (production)
+      let response = await fetch('/api/rates')
+      
+      // If we get HTML back (local dev), fetch directly from EIA
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.log('Serverless function not available, fetching directly from EIA...')
+        const data = await fetchDirectFromEIA()
+        setRates(data)
+        setLastFetched(new Date().toLocaleString())
+        return
+      }
+      
       if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`)
       const data = await response.json()
       if (data.error) throw new Error(data.error)
@@ -23,6 +35,82 @@ function App() {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Direct EIA fetch for local development
+  const fetchDirectFromEIA = async () => {
+    const API_KEY = '3U1SdIvYnXx3ZGczLrOUjwNLFXRBiPv7h2Bpcb2Z'
+    const BASE_URL = 'https://api.eia.gov/v2/electricity/retail-sales/data'
+    
+    const fetchData = async (stateId, sectorId) => {
+      const params = new URLSearchParams({
+        api_key: API_KEY,
+        'facets[stateid][]': stateId,
+        'facets[sectorid][]': sectorId,
+        frequency: 'monthly',
+        'sort[0][column]': 'period',
+        'sort[0][direction]': 'desc',
+        length: '6'
+      })
+      ;['price', 'sales', 'customers', 'revenue'].forEach(f => params.append('data[]', f))
+      const res = await fetch(`${BASE_URL}?${params}`)
+      const json = await res.json()
+      return json.response?.data || []
+    }
+
+    const [txRes, txCom, usRes, usCom] = await Promise.all([
+      fetchData('TX', 'RES'),
+      fetchData('TX', 'COM'),
+      fetchData('US', 'RES'),
+      fetchData('US', 'COM')
+    ])
+
+    const calcAvg = (row) => {
+      const sales = parseFloat(row?.sales || 0) * 1000000
+      const customers = parseFloat(row?.customers || 0)
+      const revenue = parseFloat(row?.revenue || 0) * 1000000
+      return {
+        avgUsage: customers > 0 ? Math.round(sales / customers) : 0,
+        avgBill: customers > 0 ? Math.round(revenue / customers) : 0,
+        customers: Math.round(customers)
+      }
+    }
+
+    return {
+      period: txRes[0]?.period,
+      prevPeriod: txRes[1]?.period,
+      txRes: {
+        current: parseFloat(txRes[0]?.price) || 0,
+        prev: parseFloat(txRes[1]?.price) || 0,
+        history: txRes.map(d => parseFloat(d.price)).reverse(),
+        ...calcAvg(txRes[0])
+      },
+      txCom: {
+        current: parseFloat(txCom[0]?.price) || 0,
+        prev: parseFloat(txCom[1]?.price) || 0,
+        history: txCom.map(d => parseFloat(d.price)).reverse(),
+        ...calcAvg(txCom[0])
+      },
+      usRes: {
+        current: parseFloat(usRes[0]?.price) || 0,
+        prev: parseFloat(usRes[1]?.price) || 0,
+        history: usRes.map(d => parseFloat(d.price)).reverse(),
+        ...calcAvg(usRes[0])
+      },
+      usCom: {
+        current: parseFloat(usCom[0]?.price) || 0,
+        prev: parseFloat(usCom[1]?.price) || 0,
+        history: usCom.map(d => parseFloat(d.price)).reverse(),
+        ...calcAvg(usCom[0])
+      },
+      annual: { txRes: null, usRes: null },
+      usageTrend: txRes.map(d => ({
+        period: d.period,
+        usage: calcAvg(d).avgUsage,
+        bill: calcAvg(d).avgBill
+      })).reverse(),
+      fetchedAt: new Date().toISOString()
     }
   }
 
