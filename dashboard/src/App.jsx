@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 
-const API_KEY = '3U1SdIvYnXx3ZGczLrOUjwNLFXRBiPv7h2Bpcb2Z'
-const BASE_URL = 'https://api.eia.gov/v2/electricity/retail-sales/data'
-
 function App() {
   const [rates, setRates] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -11,45 +8,25 @@ function App() {
   const [lastFetched, setLastFetched] = useState(null)
   const [copied, setCopied] = useState(null)
 
-  const fetchEIAData = async (stateId, sectorId, months = 6) => {
-    const params = new URLSearchParams({
-      api_key: API_KEY,
-      'data[]': 'price',
-      'facets[stateid][]': stateId,
-      'facets[sectorid][]': sectorId,
-      frequency: 'monthly',
-      'sort[0][column]': 'period',
-      'sort[0][direction]': 'desc',
-      length: months.toString()
-    })
-
-    const response = await fetch(`${BASE_URL}?${params}`)
-    const data = await response.json()
-    return data.response?.data || []
-  }
-
   const fetchAllRates = async () => {
     setLoading(true)
     setError(null)
 
     try {
-      const [txRes, txCom, usRes, usCom] = await Promise.all([
-        fetchEIAData('TX', 'RES', 6),
-        fetchEIAData('TX', 'COM', 6),
-        fetchEIAData('US', 'RES', 6),
-        fetchEIAData('US', 'COM', 6)
-      ])
-
-      const raw = {
-        period: txRes[0]?.period,
-        prevPeriod: txRes[1]?.period,
-        txRes: { current: parseFloat(txRes[0]?.price), prev: parseFloat(txRes[1]?.price), history: txRes.map(d => parseFloat(d.price)).reverse() },
-        txCom: { current: parseFloat(txCom[0]?.price), prev: parseFloat(txCom[1]?.price), history: txCom.map(d => parseFloat(d.price)).reverse() },
-        usRes: { current: parseFloat(usRes[0]?.price), prev: parseFloat(usRes[1]?.price), history: usRes.map(d => parseFloat(d.price)).reverse() },
-        usCom: { current: parseFloat(usCom[0]?.price), prev: parseFloat(usCom[1]?.price), history: usCom.map(d => parseFloat(d.price)).reverse() }
+      // Call our serverless function (API key stays server-side)
+      const response = await fetch('/api/rates')
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch rates: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
       }
 
-      setRates(raw)
+      setRates(data)
       setLastFetched(new Date().toLocaleString())
     } catch (err) {
       setError(err.message)
@@ -169,7 +146,7 @@ function App() {
         <p className="meta">
           Powered by EIA.gov API • 
           {lastFetched ? ` Last fetched: ${lastFetched}` : ' Ready to fetch'} • 
-          <span className="status">API Connected ✓</span>
+          <span className="status">Secure ✓</span>
         </p>
       </header>
 
@@ -291,7 +268,7 @@ function App() {
       )}
 
       <footer>
-        <p>Data: <a href="https://www.eia.gov/" target="_blank">U.S. Energy Information Administration</a> • Built for <a href="https://comparepower.com" target="_blank">ComparePower.com</a></p>
+        <p>Data: <a href="https://www.eia.gov/" target="_blank" rel="noreferrer">U.S. Energy Information Administration</a> • Built for <a href="https://comparepower.com" target="_blank" rel="noreferrer">ComparePower.com</a></p>
       </footer>
     </div>
   )
