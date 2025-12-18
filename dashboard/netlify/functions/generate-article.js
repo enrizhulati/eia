@@ -85,23 +85,86 @@ This is a **consideration-stage query**. The searcher knows they need to shop bu
 - Self-contained passages (each section makes sense alone)
 - Entity-rich language (use "Texas" not "the state", proper names not pronouns)
 
-## SRO (Semantic Retrieval Optimization) RULES
+## SRO (Semantic Retrieval Optimization) - FULL FRAMEWORK
 
-### For AI Search Visibility
-1. Front-load answers - put the key fact in the FIRST sentence of each section
-2. Use complete questions as H2s for FAQ sections
-3. Include specific data points that can be extracted as snippets
-4. Each passage should be self-contained (makes sense without context)
-5. Match intent frames:
-   - Instructional: numbered steps, action verbs
-   - Comparative: side-by-side, criteria, recommendation
-   - Evaluative: ranked list, methodology
-   - Descriptive: definition, explanation, examples
+### The 5-Layer SRO Model (All Required)
 
-### Entity Clarity
-- Always use "Texas" not "the state"
-- Always use "ComparePower" in schema, "we" in body copy
-- Use "U.S. Energy Information Administration (EIA)" on first mention, then "EIA"
+**1. MACROSEMANTICS (Site Structure)**
+- This page is a SEED in ComparePower's SCN (Semantic Content Network)
+- Parent MACRO: Texas Electricity / Energy Shopping
+- This SEED covers: Texas electricity rates, pricing, averages, comparisons
+- Child NODES would be: city-specific pages, plan type pages, provider pages
+
+**2. MICROSEMANTICS (Passage Engineering)**
+Apply these 5 rules to EVERY section:
+1. **One idea per section** - 100-150 words max, single focused concept
+2. **Self-contained** - Each passage makes sense WITHOUT surrounding context (AI extracts passages, not full pages)
+3. **Entity-rich** - Use "Texas" not "the state", "ComparePower" not "we", proper nouns not pronouns
+4. **Front-loaded** - Key fact in FIRST sentence, not buried at end
+5. **Frame-matched** - Structure matches the intent (see Intent Frames below)
+
+**3. TECHNICAL (Already handled by page implementation)**
+- TTFB < 300ms, LCP < 2.5s, content in HTML not JS-dependent
+
+**4. TRUST (Evidence + Identity + Corroboration)**
+- **Evidence Proximity**: Citations within 1-2 sentences of claims ("According to the EIA..." directly before/after the stat)
+- **Identity**: Author/publisher clearly identified in schema
+- **Cluster Trust**: Facts must be consistent with other ComparePower pages
+- **Corroboration**: Reference external sources (EIA, ERCOT, PUC Texas)
+
+**5. QUERY SEMANTICS (Intent Frame Matching)**
+
+| Query Intent | Required Structure |
+|--------------|-------------------|
+| "what is X" | Definition first, then explanation, then examples |
+| "how much" | Specific number first, then range, then context |
+| "how to" | Numbered steps, action verbs, clear sequence |
+| "X vs Y" | Side-by-side comparison, criteria, recommendation |
+| "best X" | Ranked list with methodology explained |
+| "should I" | Direct yes/no first, then reasoning, then conditions |
+
+### Entity Map for This Article
+
+**Primary Entity:**
+- Name: ComparePower
+- Type: Organization
+- @id: https://comparepower.com/#organization
+
+**Related Entities:**
+| Entity | Type | Relationship |
+|--------|------|--------------|
+| Texas | Place | serviceArea |
+| U.S. Energy Information Administration | Organization | dataSource |
+| ERCOT | Organization | mentioned (grid operator) |
+| Texas electricity rates | Concept | about |
+| kWh | QuantitativeValue | unitOfMeasurement |
+
+**Entity Clarity Rules:**
+- First mention: "U.S. Energy Information Administration (EIA)" → then "EIA"
+- First mention: "Electric Reliability Council of Texas (ERCOT)" → then "ERCOT"  
+- Always: "Texas" not "the state" or "the Lone Star State"
+- Always: "ComparePower" in schema, can use "we" in body
+- Always: Specific numbers, never "many" or "most" or "significant"
+
+### Passage Engineering Examples
+
+**BAD (not self-contained):**
+"This means you could save money. As mentioned above, the rates vary significantly."
+
+**GOOD (self-contained, entity-rich, front-loaded):**
+"Texas residential electricity rates average 13.65¢/kWh according to EIA data—12.8% lower than the U.S. national average of 15.67¢/kWh. This price difference saves the average Texas household approximately $25-40 per month compared to households in other states."
+
+### Trust Signal Placement
+
+Every major claim needs evidence within 1-2 sentences:
+- ✅ "Texas rates are 12.8% lower than the national average, according to the U.S. Energy Information Administration."
+- ❌ "Texas rates are lower than average." [no source, no specificity]
+
+External corroboration sources to reference:
+- U.S. Energy Information Administration (EIA) - federal data
+- Public Utility Commission of Texas (PUC) - regulatory body
+- ERCOT - grid operator for wholesale prices
+- ComparePower marketplace data - "based on 250+ plans from 40+ providers"
 
 ## ARTICLE STRUCTURE (Follow Exactly)
 
@@ -198,42 +261,163 @@ Compare your current rate to the [X]¢/kWh Texas average. If you're paying more 
 
 \`\`\`
 
-## JSON-LD SCHEMA (Include at end)
+## JSON-LD SCHEMA (Include at end - CRITICAL FOR SRO)
 
-After the article, include this schema block:
+After the article, include this comprehensive schema block. Note: Use @id references to link entities together (this is critical for AI entity resolution).
 
 \`\`\`html
+<!-- Article Schema -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "[Same as title]",
+  "@id": "https://comparepower.com/electricity-rates/texas/#article",
+  "headline": "[Same as title - e.g., Texas Electricity Rates December 2024 | Average 13.65¢/kWh]",
   "description": "[Same as meta description]",
-  "datePublished": "[Current date ISO]",
+  "datePublished": "[Current date ISO - e.g., 2024-12-17]",
   "dateModified": "[Current date ISO]",
   "author": {
     "@type": "Organization",
-    "name": "ComparePower",
-    "url": "https://comparepower.com"
-  },
-  "publisher": {
-    "@type": "Organization",
+    "@id": "https://comparepower.com/#organization",
     "name": "ComparePower",
     "url": "https://comparepower.com",
     "logo": {
       "@type": "ImageObject",
-      "url": "https://comparepower.com/logo.png"
-    }
+      "url": "https://comparepower.com/wp-content/uploads/2023/01/comparepower-logo.png"
+    },
+    "sameAs": [
+      "https://www.facebook.com/ComparePower",
+      "https://twitter.com/ComparePower",
+      "https://www.linkedin.com/company/comparepower"
+    ]
+  },
+  "publisher": {
+    "@id": "https://comparepower.com/#organization"
   },
   "mainEntityOfPage": {
     "@type": "WebPage",
     "@id": "https://comparepower.com/electricity-rates/texas/"
+  },
+  "about": {
+    "@type": "Thing",
+    "name": "Texas electricity rates",
+    "description": "Average retail electricity prices for residential and commercial customers in Texas"
+  },
+  "citation": {
+    "@type": "Dataset",
+    "name": "Retail Sales of Electricity",
+    "creator": {
+      "@type": "Organization",
+      "name": "U.S. Energy Information Administration",
+      "url": "https://www.eia.gov"
+    },
+    "datePublished": "[EIA data period - e.g., 2024-09]"
   }
+}
+</script>
+
+<!-- FAQPage Schema (for rich results) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "@id": "https://comparepower.com/electricity-rates/texas/#faq",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is the average electricity rate in Texas right now?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "[First 1-2 sentences of the FAQ answer - keep under 300 chars for rich results]"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How much is the average electric bill in Texas?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "[First 1-2 sentences of the FAQ answer]"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Texas electricity cheaper than the national average?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "[First 1-2 sentences of the FAQ answer]"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I lock in a rate now or wait?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "[First 1-2 sentences of the FAQ answer]"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What's a good electricity rate in Texas in [CURRENT Month] [CURRENT Year]?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "[First 1-2 sentences of the FAQ answer]"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know if I'm overpaying for electricity?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "[First 1-2 sentences of the FAQ answer]"
+      }
+    }
+  ]
+}
+</script>
+
+<!-- BreadcrumbList Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://comparepower.com/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Electricity Rates",
+      "item": "https://comparepower.com/electricity-rates/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Texas",
+      "item": "https://comparepower.com/electricity-rates/texas/"
+    }
+  ]
 }
 </script>
 \`\`\`
 
+## FINAL CHECKLIST (Verify Before Output)
+
+- [ ] Rate anchor appears in FIRST paragraph (not buried)
+- [ ] Every claim has evidence within 1-2 sentences
+- [ ] Each section is self-contained (would make sense as a standalone snippet)
+- [ ] Entity names are consistent throughout (Texas, EIA, ComparePower)
+- [ ] FAQ questions are complete sentences (not fragments)
+- [ ] FAQ answers start with direct answer, then context
+- [ ] All numbers are specific, not vague ("12.8%" not "significantly lower")
+- [ ] Schema @id values are unique and properly referenced
+- [ ] Footnote includes EIA data period for transparency
+
 Remember: Be the protective friend. Use real numbers. Attack the system, not the customer. End with confidence.`;
+
 
 function getSeasonContext(monthNum) {
   const num = parseInt(monthNum);
