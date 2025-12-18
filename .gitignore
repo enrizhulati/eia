@@ -10,8 +10,8 @@ venv/
 env/
 .venv/
 
-# Output files
-*.json
+# Output files (EIA data exports only, not package.json)
+eia_*.json
 *.csv
 
 # IDE
