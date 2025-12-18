@@ -7,6 +7,12 @@ function App() {
   const [error, setError] = useState(null)
   const [lastFetched, setLastFetched] = useState(null)
   const [copied, setCopied] = useState(null)
+  
+  // Article generator state
+  const [articleEnabled, setArticleEnabled] = useState(false)
+  const [article, setArticle] = useState(null)
+  const [articleLoading, setArticleLoading] = useState(false)
+  const [articleError, setArticleError] = useState(null)
 
   const fetchAllRates = async () => {
     setLoading(true)
@@ -207,6 +213,58 @@ function App() {
     await navigator.clipboard.writeText(text)
     setCopied(label)
     setTimeout(() => setCopied(null), 2000)
+  }
+
+  // Article generation
+  const generateArticle = async () => {
+    if (!rates) return
+    setArticleLoading(true)
+    setArticleError(null)
+    setArticle(null)
+
+    try {
+      // Try serverless function first (production)
+      let response = await fetch('/api/generate-article', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rates)
+      })
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Article generation requires deployment to Netlify. The serverless function is not available locally.')
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to generate: ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.error) throw new Error(data.error)
+      setArticle(data.article)
+    } catch (err) {
+      setArticleError(err.message)
+    } finally {
+      setArticleLoading(false)
+    }
+  }
+
+  const copyArticle = () => {
+    if (article) copyToClipboard(article, 'article')
+  }
+
+  const downloadArticle = () => {
+    if (!article || !rates) return
+    const blob = new Blob([article], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const [year, month] = (rates.period || '').split('-')
+    const months = ['', 'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+    a.download = `texas-electricity-rates-${months[parseInt(month)] || 'article'}-${year || 'export'}.md`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const copyJSON = () => copyToClipboard(JSON.stringify(getJSON(), null, 2), 'json')
@@ -441,6 +499,64 @@ function App() {
                 <span className="copy-hint">{copied === 'story6' ? '✓ Copied!' : 'Click to copy'}</span>
               </div>
             </div>
+          </section>
+
+          {/* Article Generator */}
+          <section className="article-panel">
+            <div className="article-header">
+              <h2>📝 Generate Article</h2>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={articleEnabled}
+                  onChange={(e) => setArticleEnabled(e.target.checked)}
+                />
+                <span className="toggle-slider"></span>
+                <span className="toggle-label">Enable Article Generator</span>
+              </label>
+            </div>
+            
+            {articleEnabled && (
+              <div className="article-content">
+                <p className="article-desc">
+                  Generate a complete "Texas Electricity Rates" article using the current EIA data. 
+                  Written in ComparePower voice with SEO optimization and schema markup.
+                </p>
+                
+                <button 
+                  onClick={generateArticle} 
+                  disabled={articleLoading || !rates}
+                  className="btn-generate"
+                >
+                  {articleLoading ? '⏳ Generating with Claude...' : '✨ Generate Texas Electricity Rates Article'}
+                </button>
+
+                {articleError && (
+                  <div className="article-error">❌ {articleError}</div>
+                )}
+
+                {article && (
+                  <>
+                    <div className="article-preview">
+                      <div className="preview-header">
+                        <span>Article Preview</span>
+                        <span className="preview-length">{article.length.toLocaleString()} chars</span>
+                      </div>
+                      <pre className="preview-content">{article}</pre>
+                    </div>
+                    
+                    <div className="article-actions">
+                      <button onClick={copyArticle} className="btn-export">
+                        {copied === 'article' ? '✓ Copied!' : '📋 Copy to Clipboard'}
+                      </button>
+                      <button onClick={downloadArticle} className="btn-export">
+                        ⬇️ Download .md
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </section>
 
           {/* Export */}
