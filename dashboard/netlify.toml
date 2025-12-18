@@ -2,7 +2,7 @@
 # All paths are relative to dashboard/
 
 [build]
-  command = "echo '=== PWD ===' && pwd && echo '=== LS ===' && ls -la && echo '=== NPM INSTALL ===' && npm install && echo '=== NPM BUILD ===' && npm run build && echo '=== LS DIST ===' && ls -la dist/"
+  command = "npm install && npm run build"
   publish = "dist"
 
 [functions]

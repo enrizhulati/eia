@@ -264,7 +264,7 @@ You have access to real ERCOT grid data that competitors don't use. Weave this i
 
 **Renewable Energy Story:**
 - Texas leads the nation in wind power. Use the renewable percentage to show Texas isn't just cheap—it's increasingly green.
-- "Right now, ${renewablePercent}% of Texas electricity comes from wind and solar. That's not hippie fantasy—that's hard economics."
+- "Right now, [renewablePercent]% of Texas electricity comes from wind and solar. That's not hippie fantasy—that's hard economics."
 
 **Grid Demand Context:**
 - Use daily demand to contextualize rates: "The Texas grid is currently handling [X] MWh of demand per day..."
@@ -774,6 +774,9 @@ Current date for schema: ${new Date().toISOString().split('T')[0]}`;
 };
 
 export const config = {
-  path: "/api/generate-article"
+  path: "/api/generate-article",
+  // Increase timeout for Claude API (default is 10s, max is 26s on Pro plan)
+  // Using background function would allow up to 15 minutes but changes response pattern
+  maxDuration: 60
 };
 
