@@ -57,22 +57,23 @@ const SYSTEM_PROMPT = `You are a content writer for ComparePower, Texas' top-rat
 
 ## ARTICLE STRUCTURE (Follow Exactly)
 
-Output a complete Markdown article with this structure:
+Output a complete Markdown article with this structure. Note: The article should be titled for the CURRENT month the user is reading it, not the EIA data period.
 
 \`\`\`
 ---
-title: [SEO title ~60 chars, include month/year and rate]
+title: [SEO title ~60 chars, include CURRENT month/year and rate, e.g. "Texas Electricity Rates December 2024 | Average 13.65¢/kWh"]
 description: [Meta description ~155 chars, actionable, includes current rate]
 ---
 
-# Texas Electricity Rates - [Month] [Year]
+# Texas Electricity Rates - [CURRENT Month] [CURRENT Year]
 
-[Opening 2-3 sentences: Hook using protective friend voice. Address reader directly. State the key rate and what it means.]
+[Opening 2-3 sentences: Hook using protective friend voice. Address reader directly. Reference the current month naturally. State the key rate and what it means for someone shopping RIGHT NOW.]
 
 ## Key Takeaways
 
 - [3-5 bullet points with SPECIFIC data from the EIA stats provided]
 - [Each bullet should be a complete, extractable fact]
+- [Reference "latest federal data" or "most recent EIA data" rather than the specific old month]
 
 ## Current Texas Electricity Rates
 
@@ -82,7 +83,7 @@ description: [Meta description ~155 chars, actionable, includes current rate]
 - Month-over-month change
 - What this means for the average Texas household]
 
-**According to the U.S. Energy Information Administration:**
+**According to the latest EIA data:**
 - Texas residential average: [rate] ¢/kWh
 - U.S. residential average: [rate] ¢/kWh
 - Texas is [X]% [lower/higher] than the national average
@@ -93,15 +94,16 @@ description: [Meta description ~155 chars, actionable, includes current rate]
 - Average Texas monthly usage
 - Average Texas monthly bill
 - How this compares to national averages
-- Seasonal context if relevant]
+- Seasonal context for the CURRENT month]
 
-## [Month] Shopping Strategy
+## [CURRENT Month] Shopping Strategy
 
-[Actionable advice in protective friend voice:
+[Actionable advice in protective friend voice for the CURRENT month/season:
 - Is this a good time to shop?
 - What rates to target
 - What to avoid (bill credits, free nights)
-- Contract length recommendations]
+- Contract length recommendations
+- Timing considerations for the current season]
 
 ## Texas Electricity Rates FAQs
 
@@ -115,14 +117,14 @@ description: [Meta description ~155 chars, actionable, includes current rate]
 [Yes/No first, then the percentage difference and why.]
 
 ### Should I lock in a rate now or wait?
-[Actionable advice based on current market conditions.]
+[Actionable advice based on CURRENT month and seasonal conditions.]
 
-### What's a good electricity rate in Texas in [Month] [Year]?
-[Specific range based on current data.]
+### What's a good electricity rate in Texas in [CURRENT Month] [CURRENT Year]?
+[Specific range based on current data and market conditions.]
 
 ---
 
-*Data source: U.S. Energy Information Administration (EIA), [data period]. Rates shown are average retail prices and may differ from rates available through ComparePower's marketplace.*
+*Rate data from the U.S. Energy Information Administration (EIA), [EIA DATA MONTH] [EIA DATA YEAR]. EIA publishes official average rates with a 2-3 month lag. Actual retail plan rates available today on ComparePower may differ from these averages.*
 
 \`\`\`
 
@@ -163,21 +165,21 @@ After the article, include this schema block:
 
 Remember: Be the protective friend. Use real numbers. Attack the system, not the customer. End with confidence.`;
 
-function getSeasonContext(month) {
-  const monthNum = parseInt(month);
-  if (monthNum >= 3 && monthNum <= 5) {
+function getSeasonContext(monthNum) {
+  const num = parseInt(monthNum);
+  if (num >= 3 && num <= 5) {
     return {
       season: 'Spring',
       context: 'Spring is historically one of the best times to shop for electricity in Texas. Rates are typically lower, and you can lock in before summer demand spikes.',
       shoppingAdvice: 'excellent'
     };
-  } else if (monthNum >= 6 && monthNum <= 8) {
+  } else if (num >= 6 && num <= 8) {
     return {
       season: 'Summer',
       context: 'Summer is peak demand season in Texas. AC usage drives bills higher, and rates tend to be more expensive. If you need to shop, act fast.',
       shoppingAdvice: 'challenging'
     };
-  } else if (monthNum >= 9 && monthNum <= 11) {
+  } else if (num >= 9 && num <= 11) {
     return {
       season: 'Fall',
       context: 'Fall is historically the cheapest time to shop for electricity in Texas. October especially offers competitive rates as providers fight for annual contracts.',
@@ -193,11 +195,22 @@ function getSeasonContext(month) {
 }
 
 function formatMonth(period) {
-  if (!period) return { monthName: 'Current Month', year: new Date().getFullYear() };
+  if (!period) return { monthName: 'Current Month', year: new Date().getFullYear(), monthNum: (new Date().getMonth() + 1).toString() };
   const [year, month] = period.split('-');
   const months = ['', 'January', 'February', 'March', 'April', 'May', 'June', 
                   'July', 'August', 'September', 'October', 'November', 'December'];
   return { monthName: months[parseInt(month)] || 'Current Month', year, monthNum: month };
+}
+
+function getCurrentMonthInfo() {
+  const now = new Date();
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+  return {
+    monthName: months[now.getMonth()],
+    year: now.getFullYear().toString(),
+    monthNum: (now.getMonth() + 1).toString()
+  };
 }
 
 export default async (req, context) => {
@@ -227,11 +240,23 @@ export default async (req, context) => {
     }
 
     const rateData = await req.json();
-    const { monthName, year, monthNum } = formatMonth(rateData.period);
-    const seasonInfo = getSeasonContext(monthNum);
+    const eiaData = formatMonth(rateData.period);  // When EIA data is from (e.g., September 2024)
+    const currentMonth = getCurrentMonthInfo();     // Actual current month (e.g., December 2024)
+    const seasonInfo = getSeasonContext(currentMonth.monthNum);
 
     // Build the user prompt with all the data
-    const userPrompt = `Generate the Texas Electricity Rates article for ${monthName} ${year}.
+    const userPrompt = `Generate the Texas Electricity Rates article for ${currentMonth.monthName} ${currentMonth.year}.
+
+## IMPORTANT: EIA DATA LAG HANDLING
+
+The EIA data provided is from ${eiaData.monthName} ${eiaData.year}, but the article should be written for ${currentMonth.monthName} ${currentMonth.year}.
+
+**How to handle this:**
+1. Title the article for the CURRENT month: "${currentMonth.monthName} ${currentMonth.year}"
+2. Present the rates as "current Texas electricity rates" (this is industry standard - all comparison sites do this)
+3. Include a transparent footnote at the end: "*Rate data from the U.S. Energy Information Administration (EIA), ${eiaData.monthName} ${eiaData.year}. EIA publishes official average rates with a 2-3 month lag. Actual retail plan rates available today may differ.*"
+4. In the body, you can say things like "According to the latest EIA data..." or "The most recent federal data shows..."
+5. Focus the shopping advice on the CURRENT month (${currentMonth.monthName}) and current season (${seasonInfo.season})
 
 ## CURRENT EIA DATA (Use these exact numbers)
 
@@ -269,11 +294,13 @@ export default async (req, context) => {
 - Context: ${seasonInfo.context}
 
 ## INSTRUCTIONS
-1. Write the complete article following the structure in the system prompt
+1. Write the complete article for ${currentMonth.monthName} ${currentMonth.year} (NOT ${eiaData.monthName} ${eiaData.year})
 2. Use ALL the data points provided - be specific with numbers
 3. Apply ComparePower voice throughout
-4. Include the JSON-LD schema at the end
+4. Include the JSON-LD schema at the end with today's date
 5. Make sure the article is ready to publish on comparepower.com/electricity-rates/texas/
+6. Include the EIA data lag footnote at the very end
+7. Shopping advice should be for ${currentMonth.monthName} (${seasonInfo.season}) - the current month
 
 Current date for schema: ${new Date().toISOString().split('T')[0]}`;
 
