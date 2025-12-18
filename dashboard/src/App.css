@@ -592,6 +592,222 @@ footer a:hover {
   min-width: 150px;
 }
 
+/* Article Controls */
+.article-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Competitor Analysis Option */
+.competitor-option {
+  background: linear-gradient(135deg, #1a1f2e 0%, #161b22 100%);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  transition: all 0.2s;
+}
+
+.competitor-option:hover {
+  border-color: var(--accent);
+}
+
+.checkbox-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-custom {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  position: relative;
+  transition: all 0.2s;
+  margin-top: 2px;
+}
+
+.checkbox-wrapper input[type="checkbox"]:checked + .checkbox-custom {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.checkbox-custom::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 7px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.checkbox-wrapper input[type="checkbox"]:checked + .checkbox-custom::after {
+  opacity: 1;
+}
+
+.checkbox-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.checkbox-label strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.checkbox-desc {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+/* Analysis Progress */
+.analysis-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.progress-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Competitor Summary */
+.competitor-summary {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.competitor-summary h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+}
+
+.competitor-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.comp-stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.comp-stat.accent {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.comp-stat-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.comp-stat.accent .comp-stat-value {
+  color: var(--accent);
+}
+
+.comp-stat-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 0.25rem;
+}
+
+/* Common Topics */
+.common-topics {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.topics-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.topic-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.topic-tag {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  transition: all 0.15s;
+}
+
+.topic-tag:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Preview Stats */
+.preview-stats {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.preview-words {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ERCOT Grid Monitor Panel */
 .ercot-panel {
   background: var(--bg-card);
@@ -918,6 +1134,10 @@ footer a:hover {
     align-items: flex-start;
   }
   
+  .article-controls {
+    width: 100%;
+  }
+  
   .toggle-switch {
     width: 100%;
   }
@@ -954,5 +1174,35 @@ footer a:hover {
   
   .rankings-compare {
     grid-template-columns: 1fr;
+  }
+  
+  .competitor-option {
+    padding: 0.875rem;
+  }
+  
+  .checkbox-wrapper {
+    gap: 0.75rem;
+  }
+  
+  .checkbox-label strong {
+    font-size: 0.9rem;
+  }
+  
+  .checkbox-desc {
+    font-size: 0.75rem;
+  }
+  
+  .competitor-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .comp-stat-value {
+    font-size: 1.1rem;
+  }
+  
+  .preview-stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
   }
 }

@@ -10,9 +10,12 @@ function App() {
   
   // Article generator state
   const [articleEnabled, setArticleEnabled] = useState(false)
+  const [competitorAnalysis, setCompetitorAnalysis] = useState(false)
   const [article, setArticle] = useState(null)
   const [articleLoading, setArticleLoading] = useState(false)
   const [articleError, setArticleError] = useState(null)
+  const [competitorData, setCompetitorData] = useState(null)
+  const [analysisProgress, setAnalysisProgress] = useState('')
 
   const fetchAllRates = async () => {
     setLoading(true)
@@ -215,19 +218,69 @@ function App() {
     setTimeout(() => setCopied(null), 2000)
   }
 
+  // Analyze competitors via SERP crawling
+  const analyzeCompetitors = async () => {
+    setAnalysisProgress('Searching for top 10 competitors...')
+    
+    try {
+      const response = await fetch('/api/analyze-serp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'texas electricity rates' })
+      })
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('SERP analysis requires deployment to Netlify.')
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `SERP analysis failed: ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.error) throw new Error(data.error)
+      
+      setCompetitorData(data)
+      setAnalysisProgress(`Analyzed ${data.results?.length || 0} competitors. Avg word count: ${data.avgWordCount || 'N/A'}`)
+      return data
+    } catch (err) {
+      setAnalysisProgress(`Competitor analysis failed: ${err.message}`)
+      return null
+    }
+  }
+
   // Article generation
   const generateArticle = async () => {
     if (!rates) return
     setArticleLoading(true)
     setArticleError(null)
     setArticle(null)
+    setAnalysisProgress('')
 
     try {
+      let serpData = null
+      
+      // If competitor analysis is enabled, fetch SERP data first
+      if (competitorAnalysis) {
+        serpData = await analyzeCompetitors()
+        if (!serpData) {
+          // Continue without competitor data but warn user
+          setAnalysisProgress('Proceeding without competitor analysis...')
+        }
+      }
+
+      setAnalysisProgress(competitorAnalysis && serpData ? 'Generating comprehensive article with competitor insights...' : 'Generating article...')
+
       // Try serverless function first (production)
       let response = await fetch('/api/generate-article', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rates)
+        body: JSON.stringify({
+          ...rates,
+          competitorAnalysis: serpData
+        })
       })
 
       const contentType = response.headers.get('content-type')
@@ -243,6 +296,7 @@ function App() {
       const data = await response.json()
       if (data.error) throw new Error(data.error)
       setArticle(data.article)
+      setAnalysisProgress('')
     } catch (err) {
       setArticleError(err.message)
     } finally {
@@ -640,15 +694,17 @@ function App() {
           <section className="article-panel">
             <div className="article-header">
               <h2>📝 Generate Article</h2>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={articleEnabled}
-                  onChange={(e) => setArticleEnabled(e.target.checked)}
-                />
-                <span className="toggle-slider"></span>
-                <span className="toggle-label">Enable Article Generator</span>
-              </label>
+              <div className="article-controls">
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={articleEnabled}
+                    onChange={(e) => setArticleEnabled(e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                  <span className="toggle-label">Enable Article Generator</span>
+                </label>
+              </div>
             </div>
             
             {articleEnabled && (
@@ -658,16 +714,78 @@ function App() {
                   Written in ComparePower voice with SEO optimization and schema markup.
                 </p>
                 
+                {/* Competitor Analysis Option */}
+                <div className="competitor-option">
+                  <label className="checkbox-wrapper">
+                    <input
+                      type="checkbox"
+                      checked={competitorAnalysis}
+                      onChange={(e) => setCompetitorAnalysis(e.target.checked)}
+                    />
+                    <span className="checkbox-custom"></span>
+                    <span className="checkbox-label">
+                      <strong>🔍 Competitor Analysis</strong>
+                      <span className="checkbox-desc">
+                        Crawl top 10 Google results, analyze content structure & word counts, 
+                        ensure article covers all competitor topics to rank competitively.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
+                {analysisProgress && (
+                  <div className="analysis-progress">
+                    <span className="progress-spinner"></span>
+                    {analysisProgress}
+                  </div>
+                )}
+                
                 <button 
                   onClick={generateArticle} 
                   disabled={articleLoading || !rates}
                   className="btn-generate"
                 >
-                  {articleLoading ? '⏳ Generating with Claude...' : '✨ Generate Texas Electricity Rates Article'}
+                  {articleLoading 
+                    ? (competitorAnalysis ? '⏳ Analyzing competitors & generating...' : '⏳ Generating with Claude...') 
+                    : (competitorAnalysis ? '🚀 Generate Competitive Article' : '✨ Generate Texas Electricity Rates Article')}
                 </button>
 
                 {articleError && (
                   <div className="article-error">❌ {articleError}</div>
+                )}
+
+                {competitorData && (
+                  <div className="competitor-summary">
+                    <h4>📊 Competitor Insights</h4>
+                    <div className="competitor-stats">
+                      <div className="comp-stat">
+                        <span className="comp-stat-value">{competitorData.results?.length || 0}</span>
+                        <span className="comp-stat-label">Pages Analyzed</span>
+                      </div>
+                      <div className="comp-stat">
+                        <span className="comp-stat-value">{competitorData.avgWordCount?.toLocaleString() || 'N/A'}</span>
+                        <span className="comp-stat-label">Avg Words</span>
+                      </div>
+                      <div className="comp-stat">
+                        <span className="comp-stat-value">{competitorData.minWordCount?.toLocaleString() || 'N/A'}</span>
+                        <span className="comp-stat-label">Min Words</span>
+                      </div>
+                      <div className="comp-stat accent">
+                        <span className="comp-stat-value">{competitorData.maxWordCount?.toLocaleString() || 'N/A'}</span>
+                        <span className="comp-stat-label">Max Words</span>
+                      </div>
+                    </div>
+                    {competitorData.commonTopics && competitorData.commonTopics.length > 0 && (
+                      <div className="common-topics">
+                        <span className="topics-label">Common Topics:</span>
+                        <div className="topic-tags">
+                          {competitorData.commonTopics.slice(0, 12).map((topic, i) => (
+                            <span key={i} className="topic-tag">{topic}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {article && (
@@ -675,7 +793,10 @@ function App() {
                     <div className="article-preview">
                       <div className="preview-header">
                         <span>Article Preview</span>
-                        <span className="preview-length">{article.length.toLocaleString()} chars</span>
+                        <div className="preview-stats">
+                          <span className="preview-length">{article.length.toLocaleString()} chars</span>
+                          <span className="preview-words">~{Math.round(article.split(/\s+/).length).toLocaleString()} words</span>
+                        </div>
                       </div>
                       <pre className="preview-content">{article}</pre>
                     </div>
