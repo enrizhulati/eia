@@ -242,9 +242,19 @@ export default async (req, context) => {
         };
       });
 
-      // Get latest day's data
+      // Get latest day with ACTUAL data (not zeros)
       const dates = Object.keys(demandByDate).sort().reverse();
-      const latestDate = dates[0];
+      
+      // Find first date with non-zero demand data
+      let latestDate = dates[0];
+      for (const date of dates) {
+        const dayDemand = demandByDate[date]?.D?.value || 0;
+        if (dayDemand > 0) {
+          latestDate = date;
+          break;
+        }
+      }
+      
       const latestDemand = demandByDate[latestDate] || {};
       const latestGen = genByDate[latestDate] || {};
 
