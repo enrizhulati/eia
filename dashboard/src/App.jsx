@@ -354,6 +354,141 @@ function App() {
             </div>
           </section>
 
+          {/* ERCOT Grid Monitor */}
+          {rates.ercot && (
+            <section className="ercot-panel">
+              <h2>🔌 ERCOT Grid Monitor <span className="live-badge">Daily Data</span></h2>
+              <div className="ercot-grid">
+                <div className="ercot-card demand">
+                  <div className="ercot-label">Daily Demand</div>
+                  <div className="ercot-value">{formatNumber(rates.ercot.demand)} <span>MWh</span></div>
+                  <div className="ercot-sub">Forecast: {formatNumber(rates.ercot.forecast)} MWh</div>
+                </div>
+                <div className="ercot-card generation">
+                  <div className="ercot-label">Total Generation</div>
+                  <div className="ercot-value">{formatNumber(rates.ercot.totalGeneration)} <span>MWh</span></div>
+                  <div className="ercot-sub">{rates.ercot.latestDate}</div>
+                </div>
+                <div className="ercot-card renewable">
+                  <div className="ercot-label">Renewable Mix</div>
+                  <div className="ercot-value">{rates.ercot.renewablePercent}<span>%</span></div>
+                  <div className="ercot-sub">Wind + Solar</div>
+                </div>
+              </div>
+              
+              {/* Fuel Mix */}
+              <div className="fuel-mix">
+                <h3>Generation by Fuel Type</h3>
+                <div className="fuel-bars">
+                  {rates.ercot.fuelMix && Object.entries(rates.ercot.fuelMix)
+                    .filter(([_, v]) => v.value > 0)
+                    .sort((a, b) => b[1].value - a[1].value)
+                    .map(([fuel, data]) => (
+                      <div key={fuel} className="fuel-bar-row">
+                        <span className="fuel-name">{data.name}</span>
+                        <div className="fuel-bar-container">
+                          <div 
+                            className={`fuel-bar fuel-${fuel.toLowerCase()}`} 
+                            style={{ width: `${data.percent}%` }}
+                          />
+                        </div>
+                        <span className="fuel-percent">{data.percent}%</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Daily Trend */}
+              {rates.ercot.dailyTrend && rates.ercot.dailyTrend.length > 0 && (
+                <div className="ercot-trend">
+                  <h3>7-Day Trend</h3>
+                  <table className="ercot-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Demand (MWh)</th>
+                        <th>Wind (MWh)</th>
+                        <th>Solar (MWh)</th>
+                        <th>Gas (MWh)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rates.ercot.dailyTrend.map((day, i) => (
+                        <tr key={i}>
+                          <td>{day.date}</td>
+                          <td className="value">{formatNumber(Math.round(day.demand))}</td>
+                          <td>{formatNumber(Math.round(day.wind))}</td>
+                          <td>{formatNumber(Math.round(day.solar))}</td>
+                          <td>{formatNumber(Math.round(day.gas))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* State Rankings */}
+          {rates.rankings && (
+            <section className="rankings-panel">
+              <h2>🏆 Texas State Rankings ({rates.rankings.year})</h2>
+              <div className="rankings-grid">
+                <div className="rankings-texas">
+                  <h3>Texas Position</h3>
+                  <div className="rank-cards">
+                    <div className="rank-card">
+                      <div className="rank-number">#{rates.rankings.texas?.priceRank || '—'}</div>
+                      <div className="rank-label">Retail Price</div>
+                      <div className="rank-value">{rates.rankings.texas?.price}¢/kWh</div>
+                    </div>
+                    <div className="rank-card">
+                      <div className="rank-number">#{rates.rankings.texas?.salesRank || '—'}</div>
+                      <div className="rank-label">Total Sales</div>
+                      <div className="rank-value">Highest in US</div>
+                    </div>
+                    <div className="rank-card">
+                      <div className="rank-number">#{rates.rankings.texas?.generationRank || '—'}</div>
+                      <div className="rank-label">Net Generation</div>
+                      <div className="rank-value">Power Producer</div>
+                    </div>
+                    <div className="rank-card accent">
+                      <div className="rank-label">Prime Source</div>
+                      <div className="rank-value big">{rates.rankings.texas?.primeSource || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="rankings-compare">
+                  <div className="ranking-list cheapest">
+                    <h3>🏅 Cheapest States</h3>
+                    <ol>
+                      {rates.rankings.cheapest5?.map((s, i) => (
+                        <li key={i} className={s.stateID === 'TX' ? 'highlight-tx' : ''}>
+                          <span className="rank-pos">#{s.rank}</span>
+                          <span className="rank-state">{s.state}</span>
+                          <span className="rank-price">{s.price}¢</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                  <div className="ranking-list expensive">
+                    <h3>💸 Most Expensive States</h3>
+                    <ol>
+                      {rates.rankings.mostExpensive5?.map((s, i) => (
+                        <li key={i}>
+                          <span className="rank-pos">#{s.rank}</span>
+                          <span className="rank-state">{s.state}</span>
+                          <span className="rank-price">{s.price}¢</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Rate Comparison Table */}
           <section className="data-panel">
             <h2>📊 Rate Comparison</h2>

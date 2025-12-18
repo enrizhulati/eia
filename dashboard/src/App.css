@@ -592,6 +592,300 @@ footer a:hover {
   min-width: 150px;
 }
 
+/* ERCOT Grid Monitor Panel */
+.ercot-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.ercot-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.live-badge {
+  background: #00d4aa33;
+  color: var(--accent);
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ercot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.ercot-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.ercot-card.demand {
+  border-left: 3px solid #f0ad4e;
+}
+
+.ercot-card.generation {
+  border-left: 3px solid #00d4aa;
+}
+
+.ercot-card.renewable {
+  border-left: 3px solid #5bc0de;
+}
+
+.ercot-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 0.25rem;
+}
+
+.ercot-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ercot-value span {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.ercot-sub {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 0.25rem;
+}
+
+/* Fuel Mix */
+.fuel-mix {
+  margin-bottom: 1.5rem;
+}
+
+.fuel-mix h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-dim);
+}
+
+.fuel-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fuel-bar-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 50px;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.fuel-name {
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.fuel-bar-container {
+  background: var(--bg);
+  height: 20px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.fuel-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.fuel-bar.fuel-ng { background: linear-gradient(90deg, #f0ad4e, #ec971f); }
+.fuel-bar.fuel-wnd { background: linear-gradient(90deg, #5bc0de, #31b0d5); }
+.fuel-bar.fuel-col { background: linear-gradient(90deg, #6b6b6b, #4a4a4a); }
+.fuel-bar.fuel-sun { background: linear-gradient(90deg, #f7dc6f, #f1c40f); }
+.fuel-bar.fuel-nuc { background: linear-gradient(90deg, #9b59b6, #8e44ad); }
+.fuel-bar.fuel-bat { background: linear-gradient(90deg, #00d4aa, #00a085); }
+.fuel-bar.fuel-oth { background: linear-gradient(90deg, #95a5a6, #7f8c8d); }
+
+.fuel-percent {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+/* ERCOT Trend Table */
+.ercot-trend h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-dim);
+}
+
+.ercot-table {
+  font-size: 0.8rem;
+}
+
+.ercot-table th {
+  font-size: 0.7rem;
+}
+
+/* State Rankings Panel */
+.rankings-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.rankings-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.rankings-texas h3,
+.rankings-compare h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-dim);
+}
+
+.rank-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.rank-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.rank-card.accent {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.rank-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.rank-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin: 0.25rem 0;
+}
+
+.rank-value {
+  font-size: 0.85rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.rank-value.big {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.rankings-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.ranking-list {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.ranking-list.cheapest {
+  border-left: 3px solid var(--down);
+}
+
+.ranking-list.expensive {
+  border-left: 3px solid var(--up);
+}
+
+.ranking-list h3 {
+  margin-bottom: 0.75rem !important;
+}
+
+.ranking-list ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ranking-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ranking-list li:last-child {
+  border-bottom: none;
+}
+
+.ranking-list li.highlight-tx {
+  background: var(--accent-bg);
+  margin: 0 -1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+}
+
+.rank-pos {
+  font-weight: 700;
+  color: var(--text-dim);
+  min-width: 30px;
+}
+
+.rank-state {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.rank-price {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ranking-list.cheapest .rank-price {
+  color: var(--down);
+}
+
+.ranking-list.expensive .rank-price {
+  color: var(--up);
+}
+
 @media (max-width: 600px) {
   .app {
     padding: 1rem;
@@ -639,5 +933,26 @@ footer a:hover {
   .preview-content {
     max-height: 300px;
     font-size: 0.7rem;
+  }
+  
+  .fuel-bar-row {
+    grid-template-columns: 80px 1fr 40px;
+    gap: 0.5rem;
+  }
+  
+  .fuel-name {
+    font-size: 0.7rem;
+  }
+  
+  .ercot-table {
+    font-size: 0.7rem;
+  }
+  
+  .rank-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .rankings-compare {
+    grid-template-columns: 1fr;
   }
 }

@@ -258,6 +258,38 @@ External corroboration sources to reference:
 - ERCOT - grid operator for wholesale prices
 - ComparePower marketplace data - "based on 250+ plans from 40+ providers"
 
+## USING ERCOT GRID DATA (Differentiating Content)
+
+You have access to real ERCOT grid data that competitors don't use. Weave this into the article naturally:
+
+**Renewable Energy Story:**
+- Texas leads the nation in wind power. Use the renewable percentage to show Texas isn't just cheap—it's increasingly green.
+- "Right now, ${renewablePercent}% of Texas electricity comes from wind and solar. That's not hippie fantasy—that's hard economics."
+
+**Grid Demand Context:**
+- Use daily demand to contextualize rates: "The Texas grid is currently handling [X] MWh of demand per day..."
+- Explain how demand affects prices: "When demand spikes (like now in [season]), wholesale prices move—and eventually, so do your rates."
+
+**Fuel Mix Insights:**
+- Natural gas dominance explains price volatility tied to gas markets
+- Wind/solar growth explains why off-peak rates can be so cheap
+
+## USING STATE RANKINGS (Texas vs Other States)
+
+You have data showing where Texas ranks nationally. Use this for powerful comparisons:
+
+**The Texas Advantage:**
+- Texas is typically in the bottom third for retail prices
+- Use ranking to show: "Texas ranks #[X] out of [Y] states for electricity prices. Only states like [cheapest] pay less."
+- Contrast with expensive states: "Meanwhile, folks in [expensive state] are paying [X]¢/kWh. Be glad you're in Texas."
+
+**The "Despite" Narrative:**
+- "Despite being #[X] in total electricity consumption, Texas still has lower rates than the national average"
+- This shows the deregulated market actually works
+
+**Prime Source Context:**
+- Texas's primary generation source tells a story about grid stability and future pricing
+
 ## ARTICLE STRUCTURE (Follow Exactly)
 
 Output a complete Markdown article with this structure. Note: The article should be titled for the CURRENT month the user is reading it, not the EIA data period.
@@ -662,6 +694,24 @@ The EIA data provided is from ${eiaData.monthName} ${eiaData.year}, but the arti
 - Texas Annual Avg Monthly Bill: $${rateData.annual?.txRes?.avgMonthlyBill?.toLocaleString() || 'N/A'}
 - U.S. Annual Avg Monthly Usage: ${rateData.annual?.usRes?.avgMonthlyUsage?.toLocaleString() || 'N/A'} kWh
 - U.S. Annual Avg Monthly Bill: $${rateData.annual?.usRes?.avgMonthlyBill?.toLocaleString() || 'N/A'}
+
+### ERCOT Grid Data (Real-Time Texas Grid)
+${rateData.ercot ? `- Latest Data Date: ${rateData.ercot.latestDate}
+- Daily Demand: ${rateData.ercot.demand?.toLocaleString() || 'N/A'} MWh
+- Demand Forecast: ${rateData.ercot.forecast?.toLocaleString() || 'N/A'} MWh
+- Total Generation: ${rateData.ercot.totalGeneration?.toLocaleString() || 'N/A'} MWh
+- Renewable Mix (Wind + Solar): ${rateData.ercot.renewablePercent}%
+- Generation Breakdown:
+${rateData.ercot.fuelMix ? Object.entries(rateData.ercot.fuelMix).filter(([_, v]) => v.value > 0).sort((a, b) => b[1].value - a[1].value).map(([fuel, data]) => `  - ${data.name}: ${data.percent}%`).join('\n') : '  - Data unavailable'}` : '- ERCOT data not available'}
+
+### Texas State Rankings (vs Other States)
+${rateData.rankings ? `- Data Year: ${rateData.rankings.year}
+- Texas Price Rank: #${rateData.rankings.texas?.priceRank} out of ${rateData.rankings.totalStates} states (${rateData.rankings.texas?.price}¢/kWh)
+- Texas Sales Rank: #${rateData.rankings.texas?.salesRank} (highest electricity consumption in the U.S.)
+- Texas Generation Rank: #${rateData.rankings.texas?.generationRank} (leading power producer)
+- Texas Prime Energy Source: ${rateData.rankings.texas?.primeSource}
+- Cheapest States: ${rateData.rankings.cheapest5?.map(s => `${s.state} (${s.price}¢)`).join(', ') || 'N/A'}
+- Most Expensive States: ${rateData.rankings.mostExpensive5?.map(s => `${s.state} (${s.price}¢)`).join(', ') || 'N/A'}` : '- State rankings data not available'}
 
 ## SEASONAL CONTEXT
 - Season: ${seasonInfo.season}
