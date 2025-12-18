@@ -4,8 +4,11 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
 
+# SPA fallback - force=false allows functions to handle /api/* first
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false
