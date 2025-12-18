@@ -9,6 +9,14 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# Extended timeout for AI article generation (requires Netlify Pro or higher)
+# Free tier max is 10s, Pro allows up to 26s
+[functions."generate-article"]
+  timeout = 26
+
+[functions."analyze-serp"]
+  timeout = 26
+
 # SPA fallback
 [[redirects]]
   from = "/*"
