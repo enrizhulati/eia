@@ -1,3 +1,6 @@
+# Dashboard-level config (Netlify site settings have base = "dashboard")
+# All paths are relative to dashboard/
+
 [build]
   command = "npm install && npm run build"
   publish = "dist"
@@ -6,9 +9,10 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# SPA fallback - force=false allows functions to handle /api/* first
+# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = false
+
