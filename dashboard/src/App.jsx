@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 
+// State configuration
+const STATES = {
+  TX: { name: 'Texas', abbrev: 'TX', emoji: '🤠', gridName: 'ERCOT', hasArticleGen: true },
+  OH: { name: 'Ohio', abbrev: 'OH', emoji: '🌰', gridName: 'PJM', hasArticleGen: false },
+  PA: { name: 'Pennsylvania', abbrev: 'PA', emoji: '🔔', gridName: 'PJM', hasArticleGen: false },
+  MA: { name: 'Massachusetts', abbrev: 'MA', emoji: '🦞', gridName: 'ISO-NE', hasArticleGen: false }
+}
+
 function App() {
+  const [activeState, setActiveState] = useState('TX')
   const [rates, setRates] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [lastFetched, setLastFetched] = useState(null)
   const [copied, setCopied] = useState(null)
   
-  // Article generator state
+  // Article generator state (Texas only for now)
   const [articleEnabled, setArticleEnabled] = useState(false)
   const [competitorAnalysis, setCompetitorAnalysis] = useState(false)
   const [article, setArticle] = useState(null)
@@ -17,19 +26,20 @@ function App() {
   const [competitorData, setCompetitorData] = useState(null)
   const [analysisProgress, setAnalysisProgress] = useState('')
 
-  const fetchAllRates = async () => {
+  const currentStateConfig = STATES[activeState]
+
+  const fetchStateRates = async (stateId) => {
     setLoading(true)
     setError(null)
 
     try {
-      // Try the serverless function first (production)
-      let response = await fetch('/api/rates')
+      // Try serverless function first (production)
+      let response = await fetch(`/api/state-rates?state=${stateId}`)
       
-      // If we get HTML back (local dev), fetch directly from EIA
       const contentType = response.headers.get('content-type')
       if (!contentType || !contentType.includes('application/json')) {
         console.log('Serverless function not available, fetching directly from EIA...')
-        const data = await fetchDirectFromEIA()
+        const data = await fetchDirectFromEIA(stateId)
         setRates(data)
         setLastFetched(new Date().toLocaleString())
         return
@@ -48,14 +58,14 @@ function App() {
   }
 
   // Direct EIA fetch for local development
-  const fetchDirectFromEIA = async () => {
+  const fetchDirectFromEIA = async (stateId) => {
     const API_KEY = '3U1SdIvYnXx3ZGczLrOUjwNLFXRBiPv7h2Bpcb2Z'
     const BASE_URL = 'https://api.eia.gov/v2/electricity/retail-sales/data'
     
-    const fetchData = async (stateId, sectorId, freq = 'monthly', length = 6) => {
+    const fetchData = async (state, sectorId, freq = 'monthly', length = 6) => {
       const params = new URLSearchParams({
         api_key: API_KEY,
-        'facets[stateid][]': stateId,
+        'facets[stateid][]': state,
         'facets[sectorid][]': sectorId,
         frequency: freq,
         'sort[0][column]': 'period',
@@ -68,13 +78,15 @@ function App() {
       return json.response?.data || []
     }
 
-    const [txRes, txCom, usRes, usCom, txResAnnual, usResAnnual] = await Promise.all([
-      fetchData('TX', 'RES', 'monthly', 6),
-      fetchData('TX', 'COM', 'monthly', 6),
+    const [stateRes, stateCom, stateInd, usRes, usCom, stateResAnnual, usResAnnual, historicalRes] = await Promise.all([
+      fetchData(stateId, 'RES', 'monthly', 6),
+      fetchData(stateId, 'COM', 'monthly', 6),
+      fetchData(stateId, 'IND', 'monthly', 6),
       fetchData('US', 'RES', 'monthly', 6),
       fetchData('US', 'COM', 'monthly', 6),
-      fetchData('TX', 'RES', 'annual', 2),
-      fetchData('US', 'RES', 'annual', 2)
+      fetchData(stateId, 'RES', 'annual', 2),
+      fetchData('US', 'RES', 'annual', 2),
+      fetchData(stateId, 'RES', 'annual', 10)
     ])
 
     const calcAvg = (row) => {
@@ -102,50 +114,77 @@ function App() {
     }
 
     return {
-      period: txRes[0]?.period,
-      prevPeriod: txRes[1]?.period,
-      txRes: {
-        current: parseFloat(txRes[0]?.price) || 0,
-        prev: parseFloat(txRes[1]?.price) || 0,
-        history: txRes.map(d => parseFloat(d.price)).reverse(),
-        ...calcAvg(txRes[0])
+      stateId,
+      stateName: STATES[stateId]?.name || stateId,
+      period: stateRes[0]?.period,
+      prevPeriod: stateRes[1]?.period,
+      residential: {
+        current: parseFloat(stateRes[0]?.price) || 0,
+        prev: parseFloat(stateRes[1]?.price) || 0,
+        history: stateRes.map(d => parseFloat(d.price)).reverse(),
+        ...calcAvg(stateRes[0])
       },
-      txCom: {
-        current: parseFloat(txCom[0]?.price) || 0,
-        prev: parseFloat(txCom[1]?.price) || 0,
-        history: txCom.map(d => parseFloat(d.price)).reverse(),
-        ...calcAvg(txCom[0])
+      commercial: {
+        current: parseFloat(stateCom[0]?.price) || 0,
+        prev: parseFloat(stateCom[1]?.price) || 0,
+        history: stateCom.map(d => parseFloat(d.price)).reverse(),
+        ...calcAvg(stateCom[0])
       },
-      usRes: {
+      industrial: {
+        current: parseFloat(stateInd[0]?.price) || 0,
+        prev: parseFloat(stateInd[1]?.price) || 0,
+        history: stateInd.map(d => parseFloat(d.price)).reverse(),
+        ...calcAvg(stateInd[0])
+      },
+      usResidential: {
         current: parseFloat(usRes[0]?.price) || 0,
         prev: parseFloat(usRes[1]?.price) || 0,
         history: usRes.map(d => parseFloat(d.price)).reverse(),
         ...calcAvg(usRes[0])
       },
-      usCom: {
+      usCommercial: {
         current: parseFloat(usCom[0]?.price) || 0,
         prev: parseFloat(usCom[1]?.price) || 0,
         history: usCom.map(d => parseFloat(d.price)).reverse(),
         ...calcAvg(usCom[0])
       },
       annual: {
-        txRes: txResAnnual[0] ? { year: txResAnnual[0].period, ...calcAnnualAvg(txResAnnual[0]) } : null,
-        usRes: usResAnnual[0] ? { year: usResAnnual[0].period, ...calcAnnualAvg(usResAnnual[0]) } : null
+        state: stateResAnnual[0] ? { year: stateResAnnual[0].period, ...calcAnnualAvg(stateResAnnual[0]) } : null,
+        us: usResAnnual[0] ? { year: usResAnnual[0].period, ...calcAnnualAvg(usResAnnual[0]) } : null
       },
-      usageTrend: txRes.map(d => ({
+      usageTrend: stateRes.map(d => ({
         period: d.period,
         usage: calcAvg(d).avgUsage,
         bill: calcAvg(d).avgBill
       })).reverse(),
+      historicalRates: historicalRes.map(d => ({
+        year: d.period,
+        price: parseFloat(d.price) || 0,
+        customers: Math.round(parseFloat(d.customers) || 0),
+        avgMonthlyUsage: Math.round((parseFloat(d.sales) || 0) * 1000000 / (parseFloat(d.customers) || 1) / 12),
+        avgMonthlyBill: Math.round((parseFloat(d.revenue) || 0) * 1000000 / (parseFloat(d.customers) || 1) / 12)
+      })),
       fetchedAt: new Date().toISOString()
     }
   }
 
-  useEffect(() => { fetchAllRates() }, [])
+  // Fetch on mount and when state changes
+  useEffect(() => { 
+    setRates(null)
+    setArticle(null)
+    setCompetitorData(null)
+    fetchStateRates(activeState) 
+  }, [activeState])
+
+  const handleStateChange = (stateId) => {
+    if (stateId !== activeState) {
+      setActiveState(stateId)
+    }
+  }
 
   const delta = (current, prev) => {
     const diff = current - prev
-    const pct = ((diff / prev) * 100).toFixed(2)
+    const pct = prev !== 0 ? ((diff / prev) * 100).toFixed(2) : '0.00'
     const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : ''
     return { diff: diff.toFixed(2), pct, arrow, positive: diff > 0 }
   }
@@ -159,66 +198,21 @@ function App() {
 
   const formatNumber = (n) => n?.toLocaleString() || '—'
 
-  const getShortcodes = () => {
-    if (!rates) return {}
-    const r = rates
-    return {
-      // Price shortcodes
-      'avg_texas_residential_rate': `${r.txRes.current.toFixed(2)} ¢/kWh`,
-      'previous_month_avg_texas_residential_rate-copy': `${r.txRes.prev.toFixed(2)} ¢/kWh`,
-      'percent_diff_monthly_resi': `${delta(r.txRes.current, r.txRes.prev).pct}%`,
-      'avg_commercial_rate_texas': `${r.txCom.current.toFixed(2)} ¢/kWh`,
-      'percent_off_us_avg_com': `${(((r.txCom.current - r.usCom.current) / r.usCom.current) * 100).toFixed(1)}%`,
-      'percent_off_us_avg': `${(((r.txRes.current - r.usRes.current) / r.usRes.current) * 100).toFixed(1)}%`,
-      'national_avg_rate_residential': `${r.usRes.current.toFixed(2)} ¢/kWh`,
-      'tx_res_vs_us_diff': `${(r.txRes.current - r.usRes.current).toFixed(2)} ¢/kWh`,
-      'tx_com_vs_us_diff': `${(r.txCom.current - r.usCom.current).toFixed(2)} ¢/kWh`,
-      'us_com_rate': `${r.usCom.current.toFixed(2)} ¢/kWh`,
-      'tx_res_change': `${delta(r.txRes.current, r.txRes.prev).diff} ¢/kWh`,
-      'tx_com_change': `${delta(r.txCom.current, r.txCom.prev).diff} ¢/kWh`,
-      // Usage & bill shortcodes
-      'average_monthly_usage': `${formatNumber(r.txRes.avgUsage)} kWh`,
-      'average_monthly_bill': `$${formatNumber(r.txRes.avgBill)}`,
-      'average_monthly_bill_business': `$${formatNumber(r.txCom.avgBill)}`,
-      'tx_residential_customers': formatNumber(r.txRes.customers),
-      // Annual averages
-      'annual_avg_usage': r.annual?.txRes ? `${formatNumber(r.annual.txRes.avgMonthlyUsage)} kWh/month` : '—',
-      'annual_avg_bill': r.annual?.txRes ? `$${formatNumber(r.annual.txRes.avgMonthlyBill)}/month` : '—',
-      'us_avg_monthly_usage': r.annual?.usRes ? `${formatNumber(r.annual.usRes.avgMonthlyUsage)} kWh/month` : '—',
-      'us_avg_monthly_bill': r.annual?.usRes ? `$${formatNumber(r.annual.usRes.avgMonthlyBill)}/month` : '—',
-    }
-  }
-
-  const getJSON = () => {
-    if (!rates) return {}
-    const r = rates
-    return {
-      month: r.period,
-      previous_month: r.prevPeriod,
-      texas_residential: r.txRes.current,
-      texas_residential_prev: r.txRes.prev,
-      texas_commercial: r.txCom.current,
-      texas_commercial_prev: r.txCom.prev,
-      us_residential: r.usRes.current,
-      us_residential_prev: r.usRes.prev,
-      us_commercial: r.usCom.current,
-      us_commercial_prev: r.usCom.prev,
-      tx_avg_monthly_usage_kwh: r.txRes.avgUsage,
-      tx_avg_monthly_bill: r.txRes.avgBill,
-      tx_residential_customers: r.txRes.customers,
-      annual_data: r.annual,
-      usage_trend: r.usageTrend,
-      ...getShortcodes()
-    }
-  }
-
   const copyToClipboard = async (text, label) => {
     await navigator.clipboard.writeText(text)
     setCopied(label)
     setTimeout(() => setCopied(null), 2000)
   }
 
-  // Analyze competitors via SERP crawling
+  // Get vs US comparison
+  const getVsUS = (stateRate, usRate) => {
+    if (!usRate) return { diff: 0, pct: 0 }
+    const diff = stateRate - usRate
+    const pct = ((diff / usRate) * 100).toFixed(1)
+    return { diff: diff.toFixed(2), pct, isLower: diff < 0 }
+  }
+
+  // Analyze competitors via SERP crawling (Texas only)
   const analyzeCompetitors = async () => {
     setAnalysisProgress('Searching for top 10 competitors...')
     
@@ -251,9 +245,9 @@ function App() {
     }
   }
 
-  // Article generation
+  // Article generation (Texas only)
   const generateArticle = async () => {
-    if (!rates) return
+    if (!rates || activeState !== 'TX') return
     setArticleLoading(true)
     setArticleError(null)
     setArticle(null)
@@ -262,30 +256,40 @@ function App() {
     try {
       let serpData = null
       
-      // If competitor analysis is enabled, fetch SERP data first
       if (competitorAnalysis) {
         serpData = await analyzeCompetitors()
         if (!serpData) {
-          // Continue without competitor data but warn user
           setAnalysisProgress('Proceeding without competitor analysis...')
         }
       }
 
       setAnalysisProgress(competitorAnalysis && serpData ? 'Generating comprehensive article with competitor insights...' : 'Generating article...')
 
-      // Try serverless function first (production)
       let response = await fetch('/api/generate-article', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...rates,
+          // Convert new format to old format for article generator
+          txRes: rates.residential,
+          txCom: rates.commercial,
+          usRes: rates.usResidential,
+          usCom: rates.usCommercial,
+          period: rates.period,
+          prevPeriod: rates.prevPeriod,
+          annual: rates.annual ? { txRes: rates.annual.state, usRes: rates.annual.us } : null,
+          usageTrend: rates.usageTrend,
+          ercot: rates.grid,
+          rankings: rates.rankings ? {
+            ...rates.rankings,
+            texas: rates.rankings.targetState
+          } : null,
           competitorAnalysis: serpData
         })
       })
 
       const contentType = response.headers.get('content-type')
       if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Article generation requires deployment to Netlify. The serverless function is not available locally.')
+        throw new Error('Article generation requires deployment to Netlify.')
       }
 
       if (!response.ok) {
@@ -316,28 +320,9 @@ function App() {
     a.href = url
     const [year, month] = (rates.period || '').split('-')
     const months = ['', 'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    a.download = `texas-electricity-rates-${months[parseInt(month)] || 'article'}-${year || 'export'}.md`
+    a.download = `${rates.stateName?.toLowerCase().replace(/\s/g, '-') || 'state'}-electricity-rates-${months[parseInt(month)] || 'article'}-${year || 'export'}.md`
     a.click()
     URL.revokeObjectURL(url)
-  }
-
-  const copyJSON = () => copyToClipboard(JSON.stringify(getJSON(), null, 2), 'json')
-  
-  const copyShortcodes = () => {
-    const sc = getShortcodes()
-    const text = Object.entries(sc).map(([k, v]) => `[sc name="${k}"] = ${v}`).join('\n')
-    copyToClipboard(text, 'shortcodes')
-  }
-
-  const downloadCSV = () => {
-    const sc = getShortcodes()
-    const csv = 'Shortcode,Value\n' + Object.entries(sc).map(([k, v]) => `"${k}","${v}"`).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `eia_rates_${rates?.period || 'export'}.csv`
-    a.click()
   }
 
   const Sparkline = ({ data, color }) => {
@@ -361,10 +346,25 @@ function App() {
 
   return (
     <div className="app">
+      {/* State Navigation */}
+      <nav className="state-nav">
+        {Object.entries(STATES).map(([id, state]) => (
+          <button
+            key={id}
+            className={`state-nav-btn ${activeState === id ? 'active' : ''}`}
+            onClick={() => handleStateChange(id)}
+          >
+            <span className="state-emoji">{state.emoji}</span>
+            <span className="state-name">{state.name}</span>
+            <span className="state-abbrev">{state.abbrev}</span>
+          </button>
+        ))}
+      </nav>
+
       <header>
-        <h1>⚡ Texas Electricity Rate Sync</h1>
+        <h1>{currentStateConfig.emoji} {currentStateConfig.name} Electricity Rate Sync</h1>
         <p className="meta">
-          Powered by EIA.gov API • 
+          Powered by EIA.gov API • Grid: {currentStateConfig.gridName} • 
           {lastFetched ? ` Last fetched: ${lastFetched}` : ' Ready to fetch'} • 
           <span className="status">Secure ✓</span>
         </p>
@@ -376,9 +376,9 @@ function App() {
         <div className="period-select">
           <span className="label">Data Period:</span>
           <span className="period">{rates ? formatPeriod(rates.period) : '—'}</span>
-      </div>
-        <button onClick={fetchAllRates} disabled={loading} className="btn-primary">
-          {loading ? '⏳ Fetching...' : '⟳ Fetch Latest Data'}
+        </div>
+        <button onClick={() => fetchStateRates(activeState)} disabled={loading} className="btn-primary">
+          {loading ? '⏳ Fetching...' : `⟳ Refresh ${currentStateConfig.abbrev} Data`}
         </button>
       </div>
 
@@ -387,45 +387,47 @@ function App() {
           {/* Key Stats Cards */}
           <section className="stats-cards">
             <div className="stat-card">
-              <div className="stat-label">TX Avg Monthly Usage</div>
-              <div className="stat-value">{formatNumber(rates.txRes.avgUsage)} kWh</div>
-              <div className="stat-compare">US Avg: {rates.annual?.usRes ? formatNumber(rates.annual.usRes.avgMonthlyUsage) : '—'} kWh</div>
+              <div className="stat-label">{rates.stateName} Avg Monthly Usage</div>
+              <div className="stat-value">{formatNumber(rates.residential.avgUsage)} kWh</div>
+              <div className="stat-compare">US Avg: {rates.annual?.us ? formatNumber(rates.annual.us.avgMonthlyUsage) : '—'} kWh</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">TX Avg Monthly Bill</div>
-              <div className="stat-value">${formatNumber(rates.txRes.avgBill)}</div>
-              <div className="stat-compare">US Avg: ${rates.annual?.usRes ? formatNumber(rates.annual.usRes.avgMonthlyBill) : '—'}</div>
+              <div className="stat-label">{rates.stateName} Avg Monthly Bill</div>
+              <div className="stat-value">${formatNumber(rates.residential.avgBill)}</div>
+              <div className="stat-compare">US Avg: ${rates.annual?.us ? formatNumber(rates.annual.us.avgMonthlyBill) : '—'}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">TX Residential Customers</div>
-              <div className="stat-value">{(rates.txRes.customers / 1000000).toFixed(1)}M</div>
+              <div className="stat-label">{rates.stateName} Residential Customers</div>
+              <div className="stat-value">{(rates.residential.customers / 1000000).toFixed(1)}M</div>
               <div className="stat-compare">{formatPeriod(rates.period)}</div>
             </div>
-            <div className="stat-card accent">
-              <div className="stat-label">TX vs US Price Savings</div>
-              <div className="stat-value">{(((rates.txRes.current - rates.usRes.current) / rates.usRes.current) * 100).toFixed(1)}%</div>
-              <div className="stat-compare">Lower than national avg</div>
+            <div className={`stat-card ${getVsUS(rates.residential.current, rates.usResidential.current).isLower ? 'accent' : 'warning'}`}>
+              <div className="stat-label">{rates.stateName} vs US</div>
+              <div className="stat-value">{getVsUS(rates.residential.current, rates.usResidential.current).pct}%</div>
+              <div className="stat-compare">
+                {getVsUS(rates.residential.current, rates.usResidential.current).isLower ? 'Lower than national avg' : 'Higher than national avg'}
+              </div>
             </div>
           </section>
 
-          {/* ERCOT Grid Monitor */}
-          {rates.ercot && (
+          {/* Grid Monitor */}
+          {rates.grid && (
             <section className="ercot-panel">
-              <h2>🔌 ERCOT Grid Monitor <span className="live-badge">Daily Data</span></h2>
+              <h2>🔌 {rates.grid.name} Grid Monitor <span className="live-badge">Daily Data</span></h2>
               <div className="ercot-grid">
                 <div className="ercot-card demand">
                   <div className="ercot-label">Daily Demand</div>
-                  <div className="ercot-value">{formatNumber(rates.ercot.demand)} <span>MWh</span></div>
-                  <div className="ercot-sub">Forecast: {formatNumber(rates.ercot.forecast)} MWh</div>
+                  <div className="ercot-value">{formatNumber(rates.grid.demand)} <span>MWh</span></div>
+                  <div className="ercot-sub">Forecast: {formatNumber(rates.grid.forecast)} MWh</div>
                 </div>
                 <div className="ercot-card generation">
                   <div className="ercot-label">Total Generation</div>
-                  <div className="ercot-value">{formatNumber(rates.ercot.totalGeneration)} <span>MWh</span></div>
-                  <div className="ercot-sub">{rates.ercot.latestDate}</div>
+                  <div className="ercot-value">{formatNumber(rates.grid.totalGeneration)} <span>MWh</span></div>
+                  <div className="ercot-sub">{rates.grid.latestDate}</div>
                 </div>
                 <div className="ercot-card renewable">
                   <div className="ercot-label">Renewable Mix</div>
-                  <div className="ercot-value">{rates.ercot.renewablePercent}<span>%</span></div>
+                  <div className="ercot-value">{rates.grid.renewablePercent}<span>%</span></div>
                   <div className="ercot-sub">Wind + Solar</div>
                 </div>
               </div>
@@ -434,7 +436,7 @@ function App() {
               <div className="fuel-mix">
                 <h3>Generation by Fuel Type</h3>
                 <div className="fuel-bars">
-                  {rates.ercot.fuelMix && Object.entries(rates.ercot.fuelMix)
+                  {rates.grid.fuelMix && Object.entries(rates.grid.fuelMix)
                     .filter(([_, v]) => v.value > 0)
                     .sort((a, b) => b[1].value - a[1].value)
                     .map(([fuel, data]) => (
@@ -453,7 +455,7 @@ function App() {
               </div>
 
               {/* Daily Trend */}
-              {rates.ercot.dailyTrend && rates.ercot.dailyTrend.length > 0 && (
+              {rates.grid.dailyTrend && rates.grid.dailyTrend.length > 0 && (
                 <div className="ercot-trend">
                   <h3>7-Day Trend</h3>
                   <table className="ercot-table">
@@ -464,16 +466,20 @@ function App() {
                         <th>Wind (MWh)</th>
                         <th>Solar (MWh)</th>
                         <th>Gas (MWh)</th>
+                        {rates.grid.dailyTrend.some(d => d.nuclear > 0) && <th>Nuclear (MWh)</th>}
                       </tr>
                     </thead>
                     <tbody>
-                      {rates.ercot.dailyTrend.map((day, i) => (
+                      {rates.grid.dailyTrend.map((day, i) => (
                         <tr key={i}>
                           <td>{day.date}</td>
                           <td className="value">{formatNumber(Math.round(day.demand))}</td>
                           <td>{formatNumber(Math.round(day.wind))}</td>
                           <td>{formatNumber(Math.round(day.solar))}</td>
                           <td>{formatNumber(Math.round(day.gas))}</td>
+                          {rates.grid.dailyTrend.some(d => d.nuclear > 0) && (
+                            <td>{formatNumber(Math.round(day.nuclear))}</td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -486,29 +492,29 @@ function App() {
           {/* State Rankings */}
           {rates.rankings && (
             <section className="rankings-panel">
-              <h2>🏆 Texas State Rankings ({rates.rankings.year})</h2>
+              <h2>🏆 {rates.stateName} State Rankings ({rates.rankings.year})</h2>
               <div className="rankings-grid">
                 <div className="rankings-texas">
-                  <h3>Texas Position</h3>
+                  <h3>{rates.stateName} Position</h3>
                   <div className="rank-cards">
                     <div className="rank-card">
-                      <div className="rank-number">#{rates.rankings.texas?.priceRank || '—'}</div>
+                      <div className="rank-number">#{rates.rankings.targetState?.priceRank || '—'}</div>
                       <div className="rank-label">Retail Price</div>
-                      <div className="rank-value">{rates.rankings.texas?.price}¢/kWh</div>
+                      <div className="rank-value">{rates.rankings.targetState?.price}¢/kWh</div>
                     </div>
                     <div className="rank-card">
-                      <div className="rank-number">#{rates.rankings.texas?.salesRank || '—'}</div>
+                      <div className="rank-number">#{rates.rankings.targetState?.salesRank || '—'}</div>
                       <div className="rank-label">Total Sales</div>
-                      <div className="rank-value">Highest in US</div>
+                      <div className="rank-value">Market Size</div>
                     </div>
                     <div className="rank-card">
-                      <div className="rank-number">#{rates.rankings.texas?.generationRank || '—'}</div>
+                      <div className="rank-number">#{rates.rankings.targetState?.generationRank || '—'}</div>
                       <div className="rank-label">Net Generation</div>
                       <div className="rank-value">Power Producer</div>
                     </div>
                     <div className="rank-card accent">
                       <div className="rank-label">Prime Source</div>
-                      <div className="rank-value big">{rates.rankings.texas?.primeSource || '—'}</div>
+                      <div className="rank-value big">{rates.rankings.targetState?.primeSource || '—'}</div>
                     </div>
                   </div>
                 </div>
@@ -518,7 +524,7 @@ function App() {
                     <h3>🏅 Cheapest States</h3>
                     <ol>
                       {rates.rankings.cheapest5?.map((s, i) => (
-                        <li key={i} className={s.stateID === 'TX' ? 'highlight-tx' : ''}>
+                        <li key={i} className={s.stateID === rates.stateId ? 'highlight-tx' : ''}>
                           <span className="rank-pos">#{s.rank}</span>
                           <span className="rank-state">{s.state}</span>
                           <span className="rank-price">{s.price}¢</span>
@@ -530,7 +536,7 @@ function App() {
                     <h3>💸 Most Expensive States</h3>
                     <ol>
                       {rates.rankings.mostExpensive5?.map((s, i) => (
-                        <li key={i}>
+                        <li key={i} className={s.stateID === rates.stateId ? 'highlight-tx' : ''}>
                           <span className="rank-pos">#{s.rank}</span>
                           <span className="rank-state">{s.state}</span>
                           <span className="rank-price">{s.price}¢</span>
@@ -545,7 +551,7 @@ function App() {
 
           {/* Rate Comparison Table */}
           <section className="data-panel">
-            <h2>📊 Rate Comparison</h2>
+            <h2>📊 {rates.stateName} Rate Comparison</h2>
             <table>
               <thead>
                 <tr>
@@ -558,63 +564,96 @@ function App() {
               </thead>
               <tbody>
                 <tr>
-                  <td>Texas Residential</td>
-                  <td className="value">{rates.txRes.current.toFixed(2)}</td>
-                  <td>{rates.txRes.prev.toFixed(2)}</td>
-                  <td className={delta(rates.txRes.current, rates.txRes.prev).positive ? 'up' : 'down'}>
-                    {delta(rates.txRes.current, rates.txRes.prev).arrow} {delta(rates.txRes.current, rates.txRes.prev).diff} ({delta(rates.txRes.current, rates.txRes.prev).pct}%)
+                  <td>{rates.stateName} Residential</td>
+                  <td className="value">{rates.residential.current.toFixed(2)}</td>
+                  <td>{rates.residential.prev.toFixed(2)}</td>
+                  <td className={delta(rates.residential.current, rates.residential.prev).positive ? 'up' : 'down'}>
+                    {delta(rates.residential.current, rates.residential.prev).arrow} {delta(rates.residential.current, rates.residential.prev).diff} ({delta(rates.residential.current, rates.residential.prev).pct}%)
                   </td>
-                  <td><Sparkline data={rates.txRes.history} color="#00d4aa" /></td>
+                  <td><Sparkline data={rates.residential.history} color="#00d4aa" /></td>
                 </tr>
                 <tr>
-                  <td>Texas Commercial</td>
-                  <td className="value">{rates.txCom.current.toFixed(2)}</td>
-                  <td>{rates.txCom.prev.toFixed(2)}</td>
-                  <td className={delta(rates.txCom.current, rates.txCom.prev).positive ? 'up' : 'down'}>
-                    {delta(rates.txCom.current, rates.txCom.prev).arrow} {delta(rates.txCom.current, rates.txCom.prev).diff} ({delta(rates.txCom.current, rates.txCom.prev).pct}%)
+                  <td>{rates.stateName} Commercial</td>
+                  <td className="value">{rates.commercial.current.toFixed(2)}</td>
+                  <td>{rates.commercial.prev.toFixed(2)}</td>
+                  <td className={delta(rates.commercial.current, rates.commercial.prev).positive ? 'up' : 'down'}>
+                    {delta(rates.commercial.current, rates.commercial.prev).arrow} {delta(rates.commercial.current, rates.commercial.prev).diff} ({delta(rates.commercial.current, rates.commercial.prev).pct}%)
                   </td>
-                  <td><Sparkline data={rates.txCom.history} color="#00b4d8" /></td>
+                  <td><Sparkline data={rates.commercial.history} color="#00b4d8" /></td>
+                </tr>
+                <tr>
+                  <td>{rates.stateName} Industrial</td>
+                  <td className="value">{rates.industrial.current.toFixed(2)}</td>
+                  <td>{rates.industrial.prev.toFixed(2)}</td>
+                  <td className={delta(rates.industrial.current, rates.industrial.prev).positive ? 'up' : 'down'}>
+                    {delta(rates.industrial.current, rates.industrial.prev).arrow} {delta(rates.industrial.current, rates.industrial.prev).diff} ({delta(rates.industrial.current, rates.industrial.prev).pct}%)
+                  </td>
+                  <td><Sparkline data={rates.industrial.history} color="#f0ad4e" /></td>
                 </tr>
                 <tr>
                   <td>U.S. Residential</td>
-                  <td className="value">{rates.usRes.current.toFixed(2)}</td>
-                  <td>{rates.usRes.prev.toFixed(2)}</td>
-                  <td className={delta(rates.usRes.current, rates.usRes.prev).positive ? 'up' : 'down'}>
-                    {delta(rates.usRes.current, rates.usRes.prev).arrow} {delta(rates.usRes.current, rates.usRes.prev).diff} ({delta(rates.usRes.current, rates.usRes.prev).pct}%)
+                  <td className="value">{rates.usResidential.current.toFixed(2)}</td>
+                  <td>{rates.usResidential.prev.toFixed(2)}</td>
+                  <td className={delta(rates.usResidential.current, rates.usResidential.prev).positive ? 'up' : 'down'}>
+                    {delta(rates.usResidential.current, rates.usResidential.prev).arrow} {delta(rates.usResidential.current, rates.usResidential.prev).diff} ({delta(rates.usResidential.current, rates.usResidential.prev).pct}%)
                   </td>
-                  <td><Sparkline data={rates.usRes.history} color="#8b8b8b" /></td>
-                </tr>
-                <tr>
-                  <td>U.S. Commercial</td>
-                  <td className="value">{rates.usCom.current.toFixed(2)}</td>
-                  <td>{rates.usCom.prev.toFixed(2)}</td>
-                  <td className={delta(rates.usCom.current, rates.usCom.prev).positive ? 'up' : 'down'}>
-                    {delta(rates.usCom.current, rates.usCom.prev).arrow} {delta(rates.usCom.current, rates.usCom.prev).diff} ({delta(rates.usCom.current, rates.usCom.prev).pct}%)
-                  </td>
-                  <td><Sparkline data={rates.usCom.history} color="#6b6b6b" /></td>
+                  <td><Sparkline data={rates.usResidential.history} color="#8b8b8b" /></td>
                 </tr>
                 <tr className="highlight">
-                  <td><strong>TX vs US (Residential)</strong></td>
-                  <td className="value savings">{(rates.txRes.current - rates.usRes.current).toFixed(2)}</td>
+                  <td><strong>{rates.stateName} vs US (Residential)</strong></td>
+                  <td className={`value ${getVsUS(rates.residential.current, rates.usResidential.current).isLower ? 'savings' : ''}`}>{getVsUS(rates.residential.current, rates.usResidential.current).diff}</td>
                   <td>—</td>
-                  <td className="savings">{(((rates.txRes.current - rates.usRes.current) / rates.usRes.current) * 100).toFixed(1)}% lower</td>
+                  <td className={getVsUS(rates.residential.current, rates.usResidential.current).isLower ? 'savings' : 'up'}>
+                    {getVsUS(rates.residential.current, rates.usResidential.current).pct}% {getVsUS(rates.residential.current, rates.usResidential.current).isLower ? 'lower' : 'higher'}
+                  </td>
                   <td></td>
                 </tr>
                 <tr className="highlight">
-                  <td><strong>TX vs US (Commercial)</strong></td>
-                  <td className="value savings">{(rates.txCom.current - rates.usCom.current).toFixed(2)}</td>
+                  <td><strong>{rates.stateName} vs US (Commercial)</strong></td>
+                  <td className="value">{getVsUS(rates.commercial.current, rates.usCommercial.current).diff}</td>
                   <td>—</td>
-                  <td className="savings">{(((rates.txCom.current - rates.usCom.current) / rates.usCom.current) * 100).toFixed(1)}% lower</td>
+                  <td className={getVsUS(rates.commercial.current, rates.usCommercial.current).isLower ? 'savings' : 'up'}>
+                    {getVsUS(rates.commercial.current, rates.usCommercial.current).pct}% {getVsUS(rates.commercial.current, rates.usCommercial.current).isLower ? 'lower' : 'higher'}
+                  </td>
                   <td></td>
                 </tr>
               </tbody>
             </table>
           </section>
 
+          {/* 10-Year Historical Rates */}
+          {rates.historicalRates && rates.historicalRates.length > 0 && (
+            <section className="data-panel">
+              <h2>📈 10-Year Rate History ({rates.stateName} Residential)</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Year</th>
+                    <th>Avg Rate (¢/kWh)</th>
+                    <th>Avg Monthly Usage</th>
+                    <th>Avg Monthly Bill</th>
+                    <th>Customers</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rates.historicalRates.map((yr, i) => (
+                    <tr key={i}>
+                      <td className="value">{yr.year}</td>
+                      <td className="value">{yr.price.toFixed(2)}</td>
+                      <td>{formatNumber(yr.avgMonthlyUsage)} kWh</td>
+                      <td>${formatNumber(yr.avgMonthlyBill)}</td>
+                      <td>{(yr.customers / 1000000).toFixed(2)}M</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
           {/* Usage Trend */}
           {rates.usageTrend && rates.usageTrend.length > 0 && (
             <section className="data-panel">
-              <h2>📈 Monthly Usage & Bill Trend (Texas Residential)</h2>
+              <h2>📈 Monthly Usage & Bill Trend ({rates.stateName} Residential)</h2>
               <table>
                 <thead>
                   <tr>
@@ -638,210 +677,182 @@ function App() {
 
           {/* Story Ideas */}
           <section className="story-panel">
-            <h2>💡 Content Ideas for Readers</h2>
+            <h2>💡 Content Ideas for {rates.stateName} Readers</h2>
             <div className="story-grid">
-              <div className="story-card" onClick={() => copyToClipboard(`Texans use ${Math.round(((rates.txRes.avgUsage / (rates.annual?.usRes?.avgMonthlyUsage || 863)) - 1) * 100)}% more electricity than the national average, averaging ${formatNumber(rates.txRes.avgUsage)} kWh per month compared to ${formatNumber(rates.annual?.usRes?.avgMonthlyUsage)} kWh nationally.`, 'story1')}>
-                <div className="story-stat">{Math.round(((rates.txRes.avgUsage / (rates.annual?.usRes?.avgMonthlyUsage || 863)) - 1) * 100)}%</div>
-                <div className="story-text">Texans use more electricity than the national average</div>
-                <div className="story-detail">{formatNumber(rates.txRes.avgUsage)} kWh vs {formatNumber(rates.annual?.usRes?.avgMonthlyUsage)} kWh nationally</div>
+              <div className="story-card" onClick={() => copyToClipboard(`${rates.stateName} residents ${rates.residential.avgUsage > (rates.annual?.us?.avgMonthlyUsage || 863) ? 'use' : 'use'} ${Math.abs(Math.round(((rates.residential.avgUsage / (rates.annual?.us?.avgMonthlyUsage || 863)) - 1) * 100))}% ${rates.residential.avgUsage > (rates.annual?.us?.avgMonthlyUsage || 863) ? 'more' : 'less'} electricity than the national average, averaging ${formatNumber(rates.residential.avgUsage)} kWh per month.`, 'story1')}>
+                <div className="story-stat">{Math.abs(Math.round(((rates.residential.avgUsage / (rates.annual?.us?.avgMonthlyUsage || 863)) - 1) * 100))}%</div>
+                <div className="story-text">{rates.stateName} usage vs national average</div>
+                <div className="story-detail">{formatNumber(rates.residential.avgUsage)} kWh vs {formatNumber(rates.annual?.us?.avgMonthlyUsage)} kWh nationally</div>
                 <span className="copy-hint">{copied === 'story1' ? '✓ Copied!' : 'Click to copy'}</span>
               </div>
               
-              <div className="story-card" onClick={() => copyToClipboard(`The average Texas electricity bill is $${formatNumber(rates.txRes.avgBill)} per month, based on ${formatNumber(rates.txRes.avgUsage)} kWh of usage at ${rates.txRes.current.toFixed(2)}¢/kWh.`, 'story2')}>
-                <div className="story-stat">${formatNumber(rates.txRes.avgBill)}</div>
-                <div className="story-text">Average monthly electric bill in Texas</div>
-                <div className="story-detail">Based on {formatNumber(rates.txRes.avgUsage)} kWh at {rates.txRes.current.toFixed(2)}¢/kWh</div>
+              <div className="story-card" onClick={() => copyToClipboard(`The average ${rates.stateName} electricity bill is $${formatNumber(rates.residential.avgBill)} per month, based on ${formatNumber(rates.residential.avgUsage)} kWh of usage at ${rates.residential.current.toFixed(2)}¢/kWh.`, 'story2')}>
+                <div className="story-stat">${formatNumber(rates.residential.avgBill)}</div>
+                <div className="story-text">Average monthly electric bill in {rates.stateName}</div>
+                <div className="story-detail">Based on {formatNumber(rates.residential.avgUsage)} kWh at {rates.residential.current.toFixed(2)}¢/kWh</div>
                 <span className="copy-hint">{copied === 'story2' ? '✓ Copied!' : 'Click to copy'}</span>
               </div>
               
-              <div className="story-card accent" onClick={() => copyToClipboard(`Despite higher usage, Texas electricity rates are ${Math.abs(((rates.txRes.current - rates.usRes.current) / rates.usRes.current) * 100).toFixed(1)}% below the national average—${rates.txRes.current.toFixed(2)}¢/kWh vs ${rates.usRes.current.toFixed(2)}¢/kWh.`, 'story3')}>
-                <div className="story-stat">{Math.abs(((rates.txRes.current - rates.usRes.current) / rates.usRes.current) * 100).toFixed(1)}%</div>
-                <div className="story-text">Texas rates below national average</div>
-                <div className="story-detail">{rates.txRes.current.toFixed(2)}¢ vs {rates.usRes.current.toFixed(2)}¢/kWh nationally</div>
+              <div className={`story-card ${getVsUS(rates.residential.current, rates.usResidential.current).isLower ? 'accent' : ''}`} onClick={() => copyToClipboard(`${rates.stateName} electricity rates are ${Math.abs(parseFloat(getVsUS(rates.residential.current, rates.usResidential.current).pct))}% ${getVsUS(rates.residential.current, rates.usResidential.current).isLower ? 'below' : 'above'} the national average—${rates.residential.current.toFixed(2)}¢/kWh vs ${rates.usResidential.current.toFixed(2)}¢/kWh.`, 'story3')}>
+                <div className="story-stat">{Math.abs(parseFloat(getVsUS(rates.residential.current, rates.usResidential.current).pct))}%</div>
+                <div className="story-text">{rates.stateName} rates {getVsUS(rates.residential.current, rates.usResidential.current).isLower ? 'below' : 'above'} national average</div>
+                <div className="story-detail">{rates.residential.current.toFixed(2)}¢ vs {rates.usResidential.current.toFixed(2)}¢/kWh nationally</div>
                 <span className="copy-hint">{copied === 'story3' ? '✓ Copied!' : 'Click to copy'}</span>
               </div>
               
-              <div className="story-card" onClick={() => copyToClipboard(`${(rates.txRes.customers / 1000000).toFixed(1)} million Texas households have the power to choose their electricity provider in the deregulated ERCOT market.`, 'story4')}>
-                <div className="story-stat">{(rates.txRes.customers / 1000000).toFixed(1)}M</div>
-                <div className="story-text">Texas households can choose their provider</div>
-                <div className="story-detail">Deregulated ERCOT market</div>
+              <div className="story-card" onClick={() => copyToClipboard(`${(rates.residential.customers / 1000000).toFixed(1)} million ${rates.stateName} households are served by electricity providers in the ${currentStateConfig.gridName} market.`, 'story4')}>
+                <div className="story-stat">{(rates.residential.customers / 1000000).toFixed(1)}M</div>
+                <div className="story-text">{rates.stateName} households served</div>
+                <div className="story-detail">{currentStateConfig.gridName} market</div>
                 <span className="copy-hint">{copied === 'story4' ? '✓ Copied!' : 'Click to copy'}</span>
               </div>
-
-              {rates.usageTrend && rates.usageTrend.length >= 4 && (() => {
-                const peak = rates.usageTrend.reduce((max, m) => m.bill > max.bill ? m : max, rates.usageTrend[0]);
-                const low = rates.usageTrend.reduce((min, m) => m.bill < min.bill ? m : min, rates.usageTrend[0]);
-                return (
-                  <div className="story-card wide" onClick={() => copyToClipboard(`Texas electricity bills swing dramatically by season—from $${formatNumber(low.bill)} in ${formatPeriod(low.period)} to $${formatNumber(peak.bill)} in ${formatPeriod(peak.period)}. Locking in a fixed rate before summer can protect against these spikes.`, 'story5')}>
-                    <div className="story-stat">${formatNumber(low.bill)} → ${formatNumber(peak.bill)}</div>
-                    <div className="story-text">Seasonal bill swing in Texas</div>
-                    <div className="story-detail">{formatPeriod(low.period)} (low) to {formatPeriod(peak.period)} (peak)</div>
-                    <span className="copy-hint">{copied === 'story5' ? '✓ Copied!' : 'Click to copy'}</span>
-                  </div>
-                );
-              })()}
-
-              <div className="story-card wide" onClick={() => copyToClipboard(`Texas commercial electricity rates average ${rates.txCom.current.toFixed(2)}¢/kWh—${Math.abs(((rates.txCom.current - rates.usCom.current) / rates.usCom.current) * 100).toFixed(1)}% below the U.S. commercial average of ${rates.usCom.current.toFixed(2)}¢/kWh. This makes Texas one of the most affordable states for business energy costs.`, 'story6')}>
-                <div className="story-stat">{Math.abs(((rates.txCom.current - rates.usCom.current) / rates.usCom.current) * 100).toFixed(1)}%</div>
-                <div className="story-text">Texas commercial rates below US average</div>
-                <div className="story-detail">{rates.txCom.current.toFixed(2)}¢ vs {rates.usCom.current.toFixed(2)}¢/kWh nationally</div>
-                <span className="copy-hint">{copied === 'story6' ? '✓ Copied!' : 'Click to copy'}</span>
-              </div>
             </div>
           </section>
 
-          {/* Article Generator */}
-          <section className="article-panel">
-            <div className="article-header">
-              <h2>📝 Generate Article</h2>
-              <div className="article-controls">
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={articleEnabled}
-                    onChange={(e) => setArticleEnabled(e.target.checked)}
-                  />
-                  <span className="toggle-slider"></span>
-                  <span className="toggle-label">Enable Article Generator</span>
-                </label>
-              </div>
-            </div>
-            
-            {articleEnabled && (
-              <div className="article-content">
-                <p className="article-desc">
-                  Generate a complete "Texas Electricity Rates" article using the current EIA data. 
-                  Written in ComparePower voice with SEO optimization and schema markup.
-                </p>
-                
-                {/* Competitor Analysis Option */}
-                <div className="competitor-option">
-                  <label className="checkbox-wrapper">
+          {/* Article Generator (Texas Only) */}
+          {currentStateConfig.hasArticleGen && (
+            <section className="article-panel">
+              <div className="article-header">
+                <h2>📝 Generate Article</h2>
+                <div className="article-controls">
+                  <label className="toggle-switch">
                     <input
                       type="checkbox"
-                      checked={competitorAnalysis}
-                      onChange={(e) => setCompetitorAnalysis(e.target.checked)}
+                      checked={articleEnabled}
+                      onChange={(e) => setArticleEnabled(e.target.checked)}
                     />
-                    <span className="checkbox-custom"></span>
-                    <span className="checkbox-label">
-                      <strong>🔍 Competitor Analysis</strong>
-                      <span className="checkbox-desc">
-                        Crawl top 10 Google results, analyze content structure & word counts, 
-                        ensure article covers all competitor topics to rank competitively.
-                      </span>
-                    </span>
+                    <span className="toggle-slider"></span>
+                    <span className="toggle-label">Enable Article Generator</span>
                   </label>
                 </div>
-
-                {analysisProgress && (
-                  <div className="analysis-progress">
-                    <span className="progress-spinner"></span>
-                    {analysisProgress}
-                  </div>
-                )}
-                
-                <button 
-                  onClick={generateArticle} 
-                  disabled={articleLoading || !rates}
-                  className="btn-generate"
-                >
-                  {articleLoading 
-                    ? (competitorAnalysis ? '⏳ Analyzing competitors & generating...' : '⏳ Generating with Claude...') 
-                    : (competitorAnalysis ? '🚀 Generate Competitive Article' : '✨ Generate Texas Electricity Rates Article')}
-                </button>
-
-                {articleError && (
-                  <div className="article-error">❌ {articleError}</div>
-                )}
-
-                {competitorData && (
-                  <div className="competitor-summary">
-                    <h4>📊 Competitor Insights</h4>
-                    <div className="competitor-stats">
-                      <div className="comp-stat">
-                        <span className="comp-stat-value">{competitorData.results?.length || 0}</span>
-                        <span className="comp-stat-label">Pages Analyzed</span>
-                      </div>
-                      <div className="comp-stat">
-                        <span className="comp-stat-value">{competitorData.avgWordCount?.toLocaleString() || 'N/A'}</span>
-                        <span className="comp-stat-label">Avg Words</span>
-                      </div>
-                      <div className="comp-stat">
-                        <span className="comp-stat-value">{competitorData.minWordCount?.toLocaleString() || 'N/A'}</span>
-                        <span className="comp-stat-label">Min Words</span>
-                      </div>
-                      <div className="comp-stat accent">
-                        <span className="comp-stat-value">{competitorData.maxWordCount?.toLocaleString() || 'N/A'}</span>
-                        <span className="comp-stat-label">Max Words</span>
-                      </div>
-                    </div>
-                    {competitorData.commonTopics && competitorData.commonTopics.length > 0 && (
-                      <div className="common-topics">
-                        <span className="topics-label">Common Topics:</span>
-                        <div className="topic-tags">
-                          {competitorData.commonTopics.slice(0, 12).map((topic, i) => (
-                            <span key={i} className="topic-tag">{topic}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {article && (
-                  <>
-                    <div className="article-preview">
-                      <div className="preview-header">
-                        <span>Article Preview</span>
-                        <div className="preview-stats">
-                          <span className="preview-length">{article.length.toLocaleString()} chars</span>
-                          <span className="preview-words">~{Math.round(article.split(/\s+/).length).toLocaleString()} words</span>
-                        </div>
-                      </div>
-                      <pre className="preview-content">{article}</pre>
-                    </div>
-                    
-                    <div className="article-actions">
-                      <button onClick={copyArticle} className="btn-export">
-                        {copied === 'article' ? '✓ Copied!' : '📋 Copy to Clipboard'}
-                      </button>
-                      <button onClick={downloadArticle} className="btn-export">
-                        ⬇️ Download .md
-                      </button>
-                    </div>
-                  </>
-                )}
               </div>
-            )}
-          </section>
+              
+              {articleEnabled && (
+                <div className="article-content">
+                  <p className="article-desc">
+                    Generate a complete "{rates.stateName} Electricity Rates" article using the current EIA data. 
+                    Written in ComparePower voice with SEO optimization and schema markup.
+                  </p>
+                  
+                  <div className="competitor-option">
+                    <label className="checkbox-wrapper">
+                      <input
+                        type="checkbox"
+                        checked={competitorAnalysis}
+                        onChange={(e) => setCompetitorAnalysis(e.target.checked)}
+                      />
+                      <span className="checkbox-custom"></span>
+                      <span className="checkbox-label">
+                        <strong>🔍 Competitor Analysis</strong>
+                        <span className="checkbox-desc">
+                          Crawl top 10 Google results, analyze content structure & word counts, 
+                          ensure article covers all competitor topics to rank competitively.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+
+                  {analysisProgress && (
+                    <div className="analysis-progress">
+                      <span className="progress-spinner"></span>
+                      {analysisProgress}
+                    </div>
+                  )}
+                  
+                  <button 
+                    onClick={generateArticle} 
+                    disabled={articleLoading || !rates}
+                    className="btn-generate"
+                  >
+                    {articleLoading 
+                      ? (competitorAnalysis ? '⏳ Analyzing competitors & generating...' : '⏳ Generating with Claude...') 
+                      : (competitorAnalysis ? '🚀 Generate Competitive Article' : `✨ Generate ${rates.stateName} Electricity Rates Article`)}
+                  </button>
+
+                  {articleError && (
+                    <div className="article-error">❌ {articleError}</div>
+                  )}
+
+                  {competitorData && (
+                    <div className="competitor-summary">
+                      <h4>📊 Competitor Insights</h4>
+                      <div className="competitor-stats">
+                        <div className="comp-stat">
+                          <span className="comp-stat-value">{competitorData.results?.length || 0}</span>
+                          <span className="comp-stat-label">Pages Analyzed</span>
+                        </div>
+                        <div className="comp-stat">
+                          <span className="comp-stat-value">{competitorData.avgWordCount?.toLocaleString() || 'N/A'}</span>
+                          <span className="comp-stat-label">Avg Words</span>
+                        </div>
+                        <div className="comp-stat">
+                          <span className="comp-stat-value">{competitorData.minWordCount?.toLocaleString() || 'N/A'}</span>
+                          <span className="comp-stat-label">Min Words</span>
+                        </div>
+                        <div className="comp-stat accent">
+                          <span className="comp-stat-value">{competitorData.maxWordCount?.toLocaleString() || 'N/A'}</span>
+                          <span className="comp-stat-label">Max Words</span>
+                        </div>
+                      </div>
+                      {competitorData.commonTopics && competitorData.commonTopics.length > 0 && (
+                        <div className="common-topics">
+                          <span className="topics-label">Common Topics:</span>
+                          <div className="topic-tags">
+                            {competitorData.commonTopics.slice(0, 12).map((topic, i) => (
+                              <span key={i} className="topic-tag">{topic}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {article && (
+                    <>
+                      <div className="article-preview">
+                        <div className="preview-header">
+                          <span>Article Preview</span>
+                          <div className="preview-stats">
+                            <span className="preview-length">{article.length.toLocaleString()} chars</span>
+                            <span className="preview-words">~{Math.round(article.split(/\s+/).length).toLocaleString()} words</span>
+                          </div>
+                        </div>
+                        <pre className="preview-content">{article}</pre>
+                      </div>
+                      
+                      <div className="article-actions">
+                        <button onClick={copyArticle} className="btn-export">
+                          {copied === 'article' ? '✓ Copied!' : '📋 Copy to Clipboard'}
+                        </button>
+                        <button onClick={downloadArticle} className="btn-export">
+                          ⬇️ Download .md
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Export */}
           <section className="export-panel">
-            <h2>📦 Export</h2>
+            <h2>📦 Export {rates.stateName} Data</h2>
             <div className="export-buttons">
-              <button onClick={copyJSON} className="btn-export">
+              <button onClick={() => copyToClipboard(JSON.stringify(rates, null, 2), 'json')} className="btn-export">
                 {copied === 'json' ? '✓ Copied!' : '📋 Copy JSON'}
               </button>
-              <button onClick={downloadCSV} className="btn-export">
+              <button onClick={() => {
+                const csv = `Metric,Value\nState,${rates.stateName}\nPeriod,${rates.period}\nResidential Rate,${rates.residential.current} ¢/kWh\nCommercial Rate,${rates.commercial.current} ¢/kWh\nIndustrial Rate,${rates.industrial.current} ¢/kWh\nUS Residential Rate,${rates.usResidential.current} ¢/kWh\nAvg Monthly Usage,${rates.residential.avgUsage} kWh\nAvg Monthly Bill,$${rates.residential.avgBill}\nCustomers,${rates.residential.customers}`
+                const blob = new Blob([csv], { type: 'text/csv' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `${rates.stateId.toLowerCase()}_rates_${rates?.period || 'export'}.csv`
+                a.click()
+              }} className="btn-export">
                 ⬇️ Download CSV
               </button>
-              <button onClick={copyShortcodes} className="btn-export">
-                {copied === 'shortcodes' ? '✓ Copied!' : '🔠 Copy Shortcodes'}
-              </button>
-            </div>
-          </section>
-
-          {/* Shortcodes */}
-          <section className="shortcode-panel">
-            <h2>✅ WordPress Shortcodes</h2>
-            <div className="shortcode-grid">
-              {Object.entries(getShortcodes()).map(([key, value]) => (
-                <div key={key} className="shortcode-row" onClick={() => copyToClipboard(value, key)}>
-                  <code>[sc name="{key}"]</code>
-                  <span className="shortcode-value">{value}</span>
-                  <span className="copy-hint">{copied === key ? '✓' : '📋'}</span>
-                </div>
-              ))}
             </div>
           </section>
         </>
@@ -849,7 +860,7 @@ function App() {
 
       {!rates && !loading && (
         <div className="empty">
-          <p>Click "Fetch Latest Data" to load EIA rates</p>
+          <p>Click "Refresh {currentStateConfig.abbrev} Data" to load EIA rates</p>
         </div>
       )}
 
