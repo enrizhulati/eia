@@ -1,0 +1,162 @@
+# Ohio Electricity Rates Report
+**Data Source:** U.S. Energy Information Administration (EIA)  
+**Report Generated:** December 2025  
+**Data Period:** September 2025 (Latest Available)
+
+---
+
+## Executive Summary
+
+Ohio offers **below-average electricity rates** compared to the national average, making it one of the more affordable states for both residential and commercial customers. The state's deregulated energy market provides consumers with choice among competitive electricity suppliers.
+
+| Metric | Ohio | US Average | Comparison |
+|--------|------|------------|------------|
+| Residential Rate | **17.61 ¢/kWh** | 18.07 ¢/kWh | **-2.5% cheaper** |
+| Commercial Rate | **12.00 ¢/kWh** | 14.06 ¢/kWh | **-14.7% cheaper** |
+| Price Rank | **#28 of 51** | — | Mid-range |
+
+---
+
+## Current Electricity Rates
+
+### Residential Sector
+| Metric | Value |
+|--------|-------|
+| **Current Rate** | 17.61 ¢/kWh |
+| **Previous Month** | 17.61 ¢/kWh |
+| **Month-over-Month Change** | 0.0% |
+| **vs. National Average** | -2.5% (cheaper) |
+
+### Commercial Sector
+| Metric | Value |
+|--------|-------|
+| **Current Rate** | 12.00 ¢/kWh |
+| **vs. National Average** | -14.7% (cheaper) |
+
+---
+
+## Customer Statistics
+
+### Residential Customers
+| Metric | Value |
+|--------|-------|
+| **Total Customers** | 5,118,153 |
+| **Average Monthly Usage** | 755 kWh |
+| **Average Monthly Bill** | $133 |
+| **Annual Average Bill** | ~$1,596 |
+
+### Usage Context
+Ohio's average monthly usage of 755 kWh is moderate, reflecting the state's four-season climate with heating demand in winter and air conditioning in summer.
+
+---
+
+## 6-Month Rate Trend Analysis
+
+| Month | Residential Rate | Change |
+|-------|-----------------|--------|
+| September 2025 | 17.61 ¢/kWh | — |
+| August 2025 | 17.61 ¢/kWh | 0.0% |
+| July 2025 | 17.39 ¢/kWh | -1.3% |
+| June 2025 | 17.52 ¢/kWh | — |
+| May 2025 | 17.11 ¢/kWh | — |
+| April 2025 | 16.34 ¢/kWh | — |
+
+### Trend Summary
+- **6-Month Change:** +1.27 ¢/kWh (+7.8%)
+- **Trend Direction:** ↗️ Gradual Increase
+- **Peak Month:** September (17.61 ¢)
+- **Low Month:** April (16.34 ¢)
+
+---
+
+## State Rankings (2024 Annual Data)
+
+| Category | Ohio Rank | Notes |
+|----------|-----------|-------|
+| **Price Rank** | #28 of 51 | Mid-range nationally |
+| **Total Sales** | #4 | 4th largest electricity market |
+| **Net Generation** | #7 | Major power producer |
+| **Prime Source** | Natural Gas | Primary generation fuel |
+
+---
+
+## Grid Operator: PJM Interconnection
+
+Ohio is part of the **PJM Interconnection**, the largest wholesale electricity market in the United States.
+
+### PJM Coverage
+- 13 states + D.C.
+- 65 million people served
+- 1,000+ power plants
+- ~180,000 MW generating capacity
+
+### Market Structure
+Ohio operates in a **deregulated electricity market**, meaning:
+- Consumers can choose their electricity supplier
+- Distribution remains with local utilities
+- Competitive pricing available through shopping
+
+---
+
+## Energy Mix & Generation
+
+### Primary Generation Sources
+| Source | Share | Notes |
+|--------|-------|-------|
+| **Natural Gas** | ~45% | Primary source, cleaner than coal |
+| **Nuclear** | ~15% | Davis-Besse, Perry plants |
+| **Coal** | ~20% | Declining but still significant |
+| **Renewables** | ~5% | Growing wind & solar |
+| **Other** | ~15% | Hydro, imports, etc. |
+
+---
+
+## Comparison to Neighboring States
+
+| State | Residential Rate | vs. Ohio |
+|-------|-----------------|----------|
+| **Ohio** | 17.61 ¢/kWh | — |
+| Indiana | ~15.5 ¢/kWh | -12% |
+| Michigan | ~18.2 ¢/kWh | +3% |
+| Pennsylvania | 20.46 ¢/kWh | +16% |
+| West Virginia | ~14.5 ¢/kWh | -18% |
+| Kentucky | ~12.8 ¢/kWh | -27% |
+
+---
+
+## Savings Opportunities
+
+### Potential Savings for Ohio Consumers
+
+**If switching from Ohio to cheapest state (North Dakota):**
+- Rate difference: 17.61 - 7.93 = 9.68 ¢/kWh
+- Monthly savings on 755 kWh: **$73/month**
+- Annual savings: **$876/year**
+
+**Shopping for competitive rates in Ohio's deregulated market:**
+- Best supplier rates often 15-20% below utility default
+- Potential savings: **$20-25/month** or **$240-300/year**
+
+---
+
+## Key Takeaways
+
+1. ✅ **Below National Average** - Ohio rates are 2.5% cheaper than the US average
+2. ✅ **Competitive Commercial Rates** - 14.7% cheaper than US average for businesses
+3. ⚡ **Deregulated Market** - Consumers can shop for better electricity rates
+4. 📈 **Gradual Increase** - Rates up 7.8% over 6 months (typical seasonal pattern)
+5. 🏭 **Major Energy State** - #4 in sales, #7 in generation nationally
+
+---
+
+## Data Sources
+
+- **EIA Electricity Data Browser:** Monthly retail sales data
+- **EIA State Electricity Profiles:** Annual state rankings and generation mix
+- **PJM Interconnection:** Grid operator data
+- **Report Period:** September 2025 (latest available monthly data)
+
+---
+
+*Report generated by ComparePower's Electricity Rate Intelligence Platform*
+
