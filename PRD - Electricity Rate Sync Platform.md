@@ -516,6 +516,7 @@ When competitor analysis is enabled, article MUST:
 
 ### 9.1 Technology Stack
 
+#### Dashboard (All States)
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 18 + Vite |
@@ -525,6 +526,23 @@ When competitor analysis is enabled, article MUST:
 | AI | Anthropic Claude API |
 | SERP Data | Serper.dev API |
 | Rate Data | EIA.gov API v2 |
+
+#### Texas Consumer Site
+| Layer | Technology |
+|-------|------------|
+| CMS | WordPress |
+| Data Integration | Shortcodes |
+| Hosting | Existing WP infrastructure |
+
+#### OH, PA, MA Consumer Sites
+| Layer | Technology |
+|-------|------------|
+| Framework | Astro 4.x |
+| UI Components | React 18 |
+| Styling | Tailwind CSS / CSS Modules |
+| Data | Static JSON (build-time) |
+| Hosting | Netlify / Vercel |
+| Build | Static Site Generation (SSG) |
 
 ### 9.2 Serverless Functions
 
@@ -653,11 +671,20 @@ async function fetchStateData(stateCode) {
 
 ---
 
-## 11. WordPress Integration
+## 11. CMS Integration
 
-### 11.1 Shortcode Reference
+### 11.1 Platform by State
 
-#### Texas
+| State | CMS Platform | Integration Method |
+|-------|--------------|-------------------|
+| **Texas** | WordPress | Shortcodes |
+| **Ohio** | Astro + React | API / JSON import |
+| **Pennsylvania** | Astro + React | API / JSON import |
+| **Massachusetts** | Astro + React | API / JSON import |
+
+### 11.2 WordPress Integration (Texas)
+
+#### Shortcode Reference
 | Shortcode | Example Output |
 |-----------|----------------|
 | `[sc name="avg_texas_residential_rate"]` | 15.23 ¢/kWh |
@@ -667,40 +694,125 @@ async function fetchStateData(stateCode) {
 | `[sc name="tx_avg_monthly_bill"]` | $207 |
 | `[sc name="tx_residential_customers"]` | 12,723,456 |
 
-#### Ohio
-| Shortcode | Example Output |
-|-----------|----------------|
-| `[sc name="avg_ohio_residential_rate"]` | 14.52 ¢/kWh |
-| `[sc name="oh_vs_us_residential"]` | +8.2% |
-| `[sc name="oh_avg_monthly_bill"]` | $143 |
+### 11.3 Astro + React Integration (OH, PA, MA)
 
-#### Pennsylvania
-| Shortcode | Example Output |
-|-----------|----------------|
-| `[sc name="avg_pennsylvania_residential_rate"]` | 16.87 ¢/kWh |
-| `[sc name="pa_vs_us_residential"]` | +12.4% |
-| `[sc name="pa_avg_monthly_bill"]` | $156 |
-
-#### Massachusetts
-| Shortcode | Example Output |
-|-----------|----------------|
-| `[sc name="avg_massachusetts_residential_rate"]` | 27.43 ¢/kWh |
-| `[sc name="ma_vs_us_residential"]` | +67.8% |
-| `[sc name="ma_avg_monthly_bill"]` | $198 |
-
-### 11.2 Update Workflow
-
+#### Data Flow
 ```
-1. Open Dashboard
-2. Select State
-3. Click "Fetch Latest Data"
-4. Review current rates
-5. Enable Article Generator
-6. (Optional) Enable Competitor Analysis
-7. Generate Article
-8. Copy to WordPress
-9. Update shortcode values
-10. Publish
+Dashboard API ──→ JSON Export ──→ Astro Build ──→ Static Site
+                      │
+                      ▼
+              /data/rates.json
+```
+
+#### JSON Data Structure
+```json
+{
+  "state": "OH",
+  "period": "2025-09",
+  "residential": {
+    "rate": 14.52,
+    "vsUS": "+8.2%",
+    "avgUsage": 892,
+    "avgBill": 143
+  },
+  "commercial": {
+    "rate": 11.23,
+    "vsUS": "+5.1%"
+  },
+  "grid": {
+    "operator": "PJM",
+    "renewableMix": 12.3
+  },
+  "generatedAt": "2025-12-18T12:00:00Z"
+}
+```
+
+#### Astro Component Example
+```astro
+---
+// src/components/RateCard.astro
+import rates from '../data/oh-rates.json';
+---
+
+<div class="rate-card">
+  <span class="rate">{rates.residential.rate}¢/kWh</span>
+  <span class="comparison">{rates.residential.vsUS} vs US avg</span>
+</div>
+```
+
+#### React Component Example
+```tsx
+// src/components/RateDisplay.tsx
+import { useEffect, useState } from 'react';
+
+export function RateDisplay({ state }: { state: string }) {
+  const [rates, setRates] = useState(null);
+  
+  useEffect(() => {
+    fetch(`/data/${state.toLowerCase()}-rates.json`)
+      .then(res => res.json())
+      .then(setRates);
+  }, [state]);
+  
+  if (!rates) return <div>Loading...</div>;
+  
+  return (
+    <div className="rate-display">
+      <h2>{rates.state} Electricity Rates</h2>
+      <p className="rate">{rates.residential.rate}¢/kWh</p>
+      <p className="vs-us">{rates.residential.vsUS} vs national average</p>
+    </div>
+  );
+}
+```
+
+#### Build-Time Data Fetching (Astro)
+```javascript
+// astro.config.mjs
+export default defineConfig({
+  integrations: [react()],
+  vite: {
+    define: {
+      'import.meta.env.RATES_API': JSON.stringify(process.env.RATES_API_URL)
+    }
+  }
+});
+```
+
+### 11.4 Update Workflows
+
+#### Texas (WordPress)
+```
+1. Open Dashboard → Select TX
+2. Fetch Latest Data
+3. Generate Article
+4. Copy to WordPress
+5. Update shortcode values
+6. Publish
+```
+
+#### OH, PA, MA (Astro + React)
+```
+1. Open Dashboard → Select State
+2. Fetch Latest Data
+3. Generate Article
+4. Export JSON → Save to /data/{state}-rates.json
+5. Copy article markdown → Save to /content/rates/{state}.md
+6. Run Astro build: npm run build
+7. Deploy static site
+```
+
+#### Automated Pipeline (Future)
+```
+Dashboard API
+     │
+     ▼
+GitHub Action (scheduled)
+     │
+     ├──→ Fetch rates for OH, PA, MA
+     ├──→ Update JSON files
+     ├──→ Trigger Astro rebuild
+     └──→ Deploy to Netlify/Vercel
 ```
 
 ---
@@ -757,33 +869,37 @@ async function fetchStateData(stateCode) {
 - [x] Enhanced article prompts
 
 ### Phase 2: Multi-State Foundation (Next)
-- [ ] State selector UI
+- [ ] State selector UI in dashboard
 - [ ] State configuration system
 - [ ] Parameterized data fetching
-- [ ] State-specific prompts
+- [ ] State-specific article prompts
 - [ ] PJM grid integration (OH, PA)
 - [ ] ISO-NE grid integration (MA)
+- [ ] JSON export endpoint for Astro sites
 
 ### Phase 3: Ohio Launch
-- [ ] OH rate dashboard
-- [ ] OH article template
-- [ ] OH shortcodes
+- [ ] OH rate dashboard integration
+- [ ] OH article template (ComparePower voice)
+- [ ] OH Astro + React site scaffold
+- [ ] OH JSON data pipeline
 - [ ] OH competitor analysis
-- [ ] OH city rate tables
+- [ ] OH city rate tables (Columbus, Cleveland, Cincinnati)
 
 ### Phase 4: Pennsylvania Launch
-- [ ] PA rate dashboard
+- [ ] PA rate dashboard integration
 - [ ] PA article template
-- [ ] PA shortcodes
+- [ ] PA Astro + React site scaffold
+- [ ] PA JSON data pipeline
 - [ ] PA competitor analysis
-- [ ] PA city rate tables
+- [ ] PA city rate tables (Philadelphia, Pittsburgh, Allentown)
 
 ### Phase 5: Massachusetts Launch
-- [ ] MA rate dashboard
+- [ ] MA rate dashboard integration
 - [ ] MA article template
-- [ ] MA shortcodes
+- [ ] MA Astro + React site scaffold
+- [ ] MA JSON data pipeline
 - [ ] MA competitor analysis
-- [ ] MA city rate tables
+- [ ] MA city rate tables (Boston, Worcester, Springfield)
 
 ### Phase 6: Advanced Features
 - [ ] Scheduled auto-updates
